@@ -214,7 +214,7 @@ const Contact = () => {
             <ContactInfo>
               <h3>Contact</h3>
               <p>+263 785385293</p>
-              <p>quintonndlovu@gmail.com</p>
+              <p>quintonndlovu161@gmail.com</p>
             </ContactInfo>
             
             <ContactInfo>
