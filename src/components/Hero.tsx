@@ -230,7 +230,7 @@ const Hero = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'Quinton_CV.pdf';
+      link.download = 'Green Elegant Professional Resume.pdf';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
