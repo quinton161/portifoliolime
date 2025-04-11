@@ -141,14 +141,14 @@ const Resume = () => {
         {activeTab === 'education' && (
           <EducationGrid>
             <EducationCard>
-              <EducationTitle>UI/UX Design</EducationTitle>
-              <EducationDescription>Uncommon.org, 2024</EducationDescription>
-              <EducationDescription>Focused on user-centered design principles.</EducationDescription>
-            </EducationCard>
-            <EducationCard>
-              <EducationTitle>Web Development</EducationTitle>
+              <EducationTitle>Software Develpment</EducationTitle>
               <EducationDescription>Uncommon.org, 2024</EducationDescription>
               <EducationDescription>Learned full-stack development with modern technologies.</EducationDescription>
+            </EducationCard>
+            <EducationCard>
+              <EducationTitle>UI/UX</EducationTitle>
+              <EducationDescription>Uncommon.org, 2024</EducationDescription>
+              <EducationDescription>Basics.</EducationDescription>
             </EducationCard>
             <EducationCard>
               <EducationTitle>Digital Marketing</EducationTitle>
