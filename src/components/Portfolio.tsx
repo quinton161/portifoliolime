@@ -141,11 +141,11 @@ const Portfolio = () => {
       vercelUrl: "https://myapp-nu-seven.vercel.app/"
     },
     {
-      title: "Portfolio",
+      title: "All Projects",
       description: "Modern web application with stunning UI/UX design",
-      image: "/images/q.png",
-      githubUrl: "https://quinton161.github.io/Portfolioreact/",
-      vercelUrl: "https://portfolioreact-psi-five.vercel.app/"
+      image: "/images/scrum2.png",
+      githubUrl: "",
+      vercelUrl: "https://scrum2-quinton161s-projects.vercel.app/"
     },
     {
       title: "Daniel.portfolio",
