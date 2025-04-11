@@ -277,7 +277,7 @@ const Hero = () => {
             <Title>
               Hi, I am <HighlightedText>Quinton</HighlightedText>
             </Title>
-            <Subtitle>Web Developer</Subtitle>
+            <Subtitle>Software Developer</Subtitle>
             <Description>
               A passionate web developer with expertise in creating beautiful,
               functional, and user-friendly websites. I specialize in modern
