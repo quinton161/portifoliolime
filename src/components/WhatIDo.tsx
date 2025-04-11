@@ -106,21 +106,21 @@ const WhatIDo = () => {
   const services: Service[] = [
     {
       icon: FaLaptopCode,
-      title: "UX/UI Design",
-      description: "As a UX/UI designer, I craft intuitive and visually engaging experiences that enhance user interaction. I focus on usability, aesthetics, and functionality to create seamless digital products."
+      title: "Fronted-End",
+      description: "The frontend is the part of the application users interact with directly, built using HTML, CSS, and JavaScript (often with frameworks like React or Vue)."
     },
  
     {
       icon: FaGlobe,
-      title: "Web Design",
-      description: "As a web developer, I build modern, user-friendly websites with clean code and great design. I specialize in creating seamless digital experiences that bring ideas to life."
+      title: "Back-end",
+      description: "The backend handles business logic, database operations, and server-side processes, typically built using Node.js, Python, or similar technologies."
     },
    
    
     {
       icon: FaChartLine,
-      title: "Digital Marketing",
-      description: "As a digital marketer, I create data-driven strategies to boost brand visibility, engage audiences, and drive conversions through SEO, social media, and targeted campaigns."
+      title: "Basic skills",
+      description: "Skilled in frontend and backend development, with a strong foundation in UX/UI design and digital marketing to build user-friendly, visually engaging, and effectively promoted digital experiences."
     }
   ];
 
