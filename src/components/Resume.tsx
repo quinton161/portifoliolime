@@ -16,7 +16,7 @@ const Title = styled.h2`
   font-size: 2.5rem;
   text-align: center;
   margin-bottom: 3rem;
-  
+
   &::after {
     content: '';
     display: block;
@@ -123,6 +123,8 @@ const Resume = () => {
     { title: 'TypeScript', description: 'A typed superset of JavaScript that enhances code quality and maintainability.' },
     { title: 'Tailwind CSS', description: 'A utility-first CSS framework for rapid UI development with a focus on customization.' },
     { title: 'Next.js', description: 'A React framework for server-side rendering and static site generation, enhancing performance.' },
+    { title: 'Firebase', description: 'A platform developed by Google for building and managing mobile and web applications with real-time databases, authentication, and hosting.' },
+    { title: 'MongoDB', description: 'A NoSQL database known for its scalability and flexibility in handling JSON-like documents.' },
   ];
 
   return (
@@ -141,7 +143,7 @@ const Resume = () => {
         {activeTab === 'education' && (
           <EducationGrid>
             <EducationCard>
-              <EducationTitle>Software Develpment</EducationTitle>
+              <EducationTitle>Software Development</EducationTitle>
               <EducationDescription>Uncommon.org, 2024</EducationDescription>
               <EducationDescription>Learned full-stack development with modern technologies.</EducationDescription>
             </EducationCard>
@@ -177,4 +179,4 @@ const Resume = () => {
   );
 };
 
-export default Resume; 
+export default Resume;
