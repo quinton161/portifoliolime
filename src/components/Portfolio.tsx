@@ -157,21 +157,21 @@ const Portfolio = () => {
     {
       title: "Bakers Inn",
       description: "A fresh responsive website with greater user experience",
-      image: "/images/truck.png",
+      image: "/images/BakersInn.png",
       githubUrl: "",
       vercelUrl: "https://bakersinn.vercel.app/"
     },
     {
       title: "Simba",
       description: "Interactive dashboard with real-time data",
-      image: "/images/shoptacle.png",
+      image: "/images/Simba.png",
       githubUrl: "",
       vercelUrl: "https://simba2-lac.vercel.app/"
     },
     {
       title: "NFT",
       description: "Social media platform with modern features",
-      image: "/images/pp.png",
+      image: "/images/NFT.png",
       githubUrl: "",
       vercelUrl: "https://nft-theta-eight.vercel.app/"
     }
