@@ -155,11 +155,11 @@ const Portfolio = () => {
       vercelUrl: "https://daniel-smoky-delta.vercel.app/"
     },
     {
-      title: "Truck",
-      description: "Mobile-first web application with modern features",
+      title: "Bakers Inn",
+      description: "A fresh responsive website with greater user experience",
       image: "/images/truck.png",
       githubUrl: "https://quinton161.github.io/SFS-trucks/",
-      vercelUrl: ""
+      vercelUrl: "https://bakersinn.vercel.app/"
     },
     {
       title: "ShopTacle",
