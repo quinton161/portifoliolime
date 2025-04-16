@@ -158,22 +158,22 @@ const Portfolio = () => {
       title: "Bakers Inn",
       description: "A fresh responsive website with greater user experience",
       image: "/images/truck.png",
-      githubUrl: "https://quinton161.github.io/SFS-trucks/",
+      githubUrl: "",
       vercelUrl: "https://bakersinn.vercel.app/"
     },
     {
-      title: "ShopTacle",
+      title: "Simba",
       description: "Interactive dashboard with real-time data",
       image: "/images/shoptacle.png",
-      githubUrl: "https://quinton161.github.io/shoptacle/",
-      vercelUrl: ""
+      githubUrl: "",
+      vercelUrl: "https://simba2-lac.vercel.app/"
     },
     {
-      title: "Workspace",
+      title: "NFT",
       description: "Social media platform with modern features",
       image: "/images/pp.png",
-      githubUrl: "https://quinton161.github.io/Workspace/",
-      vercelUrl: ""
+      githubUrl: "",
+      vercelUrl: "https://nft-theta-eight.vercel.app/"
     }
   ];
 
