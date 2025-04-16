@@ -157,7 +157,7 @@ const Portfolio = () => {
     {
       title: "Bakers Inn",
       description: "A fresh responsive website with greater user experience",
-      image: "/images/BakersInn.png",
+      image: "/images/bakersInn.png",
       githubUrl: "",
       vercelUrl: "https://bakersinn.vercel.app/"
     },
