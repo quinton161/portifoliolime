@@ -148,11 +148,11 @@ const Portfolio = () => {
       vercelUrl: "https://scrum2-quinton161s-projects.vercel.app/"
     },
     {
-      title: "Daniel.portfolio",
-      description: "E-commerce platform with seamless user experience",
-      image: "/images/d.png",
-      githubUrl: "https://quinton161.github.io/daniel/",
-      vercelUrl: "https://daniel-smoky-delta.vercel.app/"
+      title: "Trailer Box",
+      description: "Watch Trailer for best upcoming movies",
+      image: "/images/movie.png",
+      githubUrl: "https://github.com/quinton161/trailerbox",
+      vercelUrl: "https://trailerbox-tau.vercel.app/react-movie-app"
     },
     {
       title: "Bakers Inn",
