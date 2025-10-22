@@ -1,13 +1,105 @@
 import React from "react";
-import styled, { createGlobalStyle } from "styled-components";
+import styled, { createGlobalStyle, keyframes, css } from "styled-components";
 import { IconType } from 'react-icons';
 import { FaGithub, FaLinkedin, FaFacebook, FaDownload, FaSpinner } from 'react-icons/fa';
 import { IconBaseProps } from 'react-icons/lib';
+import QuintonLogo from './QuintonLogo';
+
+// Define keyframes
+const backgroundShift = keyframes`
+  0%, 100% { 
+    background-position: 0% 0%, 0% 0%, 0% 0%;
+  }
+  33% { 
+    background-position: 30% 30%, -20% 20%, 10% -10%;
+  }
+  66% { 
+    background-position: -20% 40%, 40% -30%, -10% 20%;
+  }
+`;
+
+const floatingParticles = keyframes`
+  0% { 
+    background-position: 0% 0%, 0% 0%, 0% 0%, 0% 0%;
+    opacity: 0.6;
+  }
+  25% { 
+    background-position: 25% 25%, -25% 25%, 15% -15%, -15% 15%;
+    opacity: 0.8;
+  }
+  50% { 
+    background-position: 50% 50%, -50% 50%, 30% -30%, -30% 30%;
+    opacity: 1;
+  }
+  75% { 
+    background-position: 75% 75%, -75% 75%, 45% -45%, -45% 45%;
+    opacity: 0.8;
+  }
+  100% { 
+    background-position: 100% 100%, -100% 100%, 60% -60%, -60% 60%;
+    opacity: 0.6;
+  }
+`;
+
+const buttonGlow = keyframes`
+  0%, 100% { 
+    opacity: 0;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.6;
+    transform: scale(1.02);
+  }
+`;
 
 const HeroContainer = styled.div`
   min-height: 100vh;
-  background: linear-gradient(to bottom right, #000000, #111111);
+  background: linear-gradient(135deg, 
+    #0a0a0a 0%,
+    #0f0f0f 50%,
+    #0d1a0d 100%
+  );
   padding-top: 4rem;
+  position: relative;
+  overflow: hidden;
+  
+  /* Advanced particle background */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(circle at 80% 20%, rgba(50, 205, 50, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 20% 80%, rgba(34, 197, 94, 0.03) 0%, transparent 40%),
+      radial-gradient(circle at 60% 40%, rgba(16, 185, 129, 0.02) 0%, transparent 30%);
+    z-index: 0;
+    ${css`
+      animation: ${backgroundShift} 20s ease-in-out infinite;
+    `}
+  }
+  
+  /* Floating particles */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      radial-gradient(circle at 10% 20%, rgba(50, 205, 50, 0.1) 1px, transparent 1px),
+      radial-gradient(circle at 90% 80%, rgba(50, 205, 50, 0.08) 1px, transparent 1px),
+      radial-gradient(circle at 30% 60%, rgba(50, 205, 50, 0.06) 1px, transparent 1px),
+      radial-gradient(circle at 70% 30%, rgba(50, 205, 50, 0.04) 1px, transparent 1px);
+    background-size: 100px 100px, 150px 150px, 80px 80px, 120px 120px;
+    z-index: 0;
+    ${css`
+      animation: ${floatingParticles} 25s linear infinite;
+    `}
+  }
   
   @media (min-width: 768px) and (max-width: 1024px) {
     min-height: auto;
@@ -19,6 +111,8 @@ const Content = styled.div`
   max-width: 80rem;
   margin: 0 auto;
   padding: 3rem 1rem;
+  position: relative;
+  z-index: 1;
   
   @media (min-width: 640px) {
     padding: 4rem 1.5rem;
@@ -63,14 +157,55 @@ const ImageSection = styled.div`
 const ImageFrame = styled.div`
   position: absolute;
   inset: 0;
-  border: 2px solid limegreen;
-  border-radius: 1rem;
-  transform: translateZ(20px);
+  border: 1px solid rgba(50, 205, 50, 0.2);
+  border-radius: 1.5rem;
+  background: rgba(50, 205, 50, 0.06);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform, box-shadow, border-color;
   box-shadow: 
-    0 0 20px rgba(50, 205, 50, 0.3),
-    inset 0 0 20px rgba(50, 205, 50, 0.2);
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(50, 205, 50, 0.04),
+    0 0 0 1px rgba(50, 205, 50, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  
+  /* Subtle light reflection */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    border-radius: 1.5rem 1.5rem 0 0;
+    background: linear-gradient(180deg, 
+      rgba(255, 255, 255, 0.08) 0%, 
+      rgba(255, 255, 255, 0.04) 50%,
+      transparent 100%
+    );
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  
+  &:hover {
+    transform: scale(1.02);
+    border-color: rgba(50, 205, 50, 0.3);
+    box-shadow: 
+      0 12px 40px rgba(0, 0, 0, 0.12),
+      0 8px 20px rgba(50, 205, 50, 0.08),
+      0 0 0 1px rgba(50, 205, 50, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+    
+    &::before {
+      background: linear-gradient(180deg, 
+        rgba(255, 255, 255, 0.12) 0%, 
+        rgba(255, 255, 255, 0.06) 50%,
+        transparent 100%
+      );
+    }
+  }
 `;
 
 const Image = styled.img`
@@ -80,12 +215,19 @@ const Image = styled.img`
   height: 80%;
   margin: 10%;
   object-fit: contain;
-  transform: translateZ(30px);
-  filter: drop-shadow(0 10px 20px rgba(50, 205, 50, 0.4));
-  transition: transform 0.3s ease;
+  filter: drop-shadow(0 8px 16px rgba(50, 205, 50, 0.15));
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform, filter;
   
   &:hover {
-    transform: translateZ(40px) scale(1.05);
+    transform: scale(1.06) translateY(-2px);
+    filter: drop-shadow(0 16px 32px rgba(50, 205, 50, 0.25))
+            drop-shadow(0 8px 16px rgba(50, 205, 50, 0.15));
+  }
+  
+  &:active {
+    transform: scale(1.04) translateY(-1px);
+    transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 `;
 
@@ -96,6 +238,17 @@ const TextContent = styled.div`
   @media (min-width: 768px) {
     text-align: left;
     padding: 0;
+  }
+`;
+
+const HeroLogoContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+  
+  @media (min-width: 768px) {
+    justify-content: flex-start;
+    margin-bottom: 1.5rem;
   }
 `;
 
@@ -134,28 +287,106 @@ const Description = styled.p`
 `;
 
 const Button = styled.a`
-  background-color: limegreen;
+  background: linear-gradient(135deg, 
+    rgba(50, 205, 50, 0.9) 0%,
+    rgba(34, 197, 94, 0.8) 100%
+  );
   color: white;
-  padding: 0.75rem 2rem;
-  border-radius: 9999px;
+  padding: 1rem 2.5rem;
+  border-radius: 1rem;
   font-weight: 500;
-  transition: all 0.3s;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   margin-bottom: 2rem;
-  box-shadow: 0 0 15px rgba(50, 205, 50, 0.3);
+  box-shadow: 
+    0 8px 25px rgba(50, 205, 50, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
+  border: 1px solid rgba(50, 205, 50, 0.2);
+  backdrop-filter: blur(16px) saturate(120%);
+  position: relative;
+  overflow: hidden;
+  will-change: transform, box-shadow, background;
+  
+  /* Advanced shine and morphing effect */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+      transparent 0%, 
+      rgba(255, 255, 255, 0.15) 30%,
+      rgba(50, 205, 50, 0.1) 50%, 
+      rgba(255, 255, 255, 0.15) 70%,
+      transparent 100%
+    );
+    transition: left 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform: skewX(-20deg);
+  }
+  
+  /* Pulsing glow effect */
+  &::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(135deg, 
+      rgba(50, 205, 50, 0.3) 0%,
+      rgba(34, 197, 94, 0.2) 100%
+    );
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    ${css`
+      animation: ${buttonGlow} 3s ease-in-out infinite;
+    `}
+  }
   
   &:hover {
-    background-color: #32CD32;
-    transform: scale(1.05);
-    box-shadow: 0 0 20px rgba(50, 205, 50, 0.5);
+    transform: translateY(-6px) scale(1.03) rotateX(5deg);
+    box-shadow: 
+      0 20px 50px rgba(50, 205, 50, 0.22),
+      0 12px 25px rgba(0, 0, 0, 0.15),
+      0 0 0 1px rgba(50, 205, 50, 0.3),
+      0 0 40px rgba(50, 205, 50, 0.1),
+      inset 0 2px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -2px 0 rgba(255, 255, 255, 0.08);
+    background: linear-gradient(135deg, 
+      rgba(50, 205, 50, 1) 0%,
+      rgba(34, 197, 94, 0.98) 50%,
+      rgba(16, 185, 129, 0.95) 100%
+    );
+    border-color: rgba(50, 205, 50, 0.4);
+    
+    &::before {
+      left: 100%;
+    }
+    
+    &::after {
+      opacity: 0.8;
+      transform: scale(1.05);
+    }
+  }
+  
+  &:active {
+    transform: translateY(-2px) scale(1.01);
+    transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
   svg {
     font-size: 1.2rem;
+    z-index: 1;
   }
 
   .spinner {
@@ -177,14 +408,55 @@ const SocialLinks = styled.div`
 const SocialIcon = styled.a`
   color: #fff;
   font-size: 1.5rem;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   display: flex;
   align-items: center;
+  justify-content: center;
+  padding: 0.875rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  will-change: transform, background, border-color, box-shadow;
+  position: relative;
+  overflow: hidden;
+  
+  /* Subtle background glow */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(50, 205, 50, 0.05);
+    opacity: 0;
+    transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border-radius: inherit;
+  }
   
   &:hover {
     color: #32CD32;
-    transform: translateY(-5px);
-    filter: drop-shadow(0 0 10px rgba(50, 205, 50, 0.5));
+    transform: translateY(-6px) scale(1.05);
+    background: rgba(50, 205, 50, 0.08);
+    border-color: rgba(50, 205, 50, 0.25);
+    box-shadow: 
+      0 12px 30px rgba(50, 205, 50, 0.12),
+      0 6px 15px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    
+    &::before {
+      opacity: 1;
+    }
+  }
+  
+  &:active {
+    transform: translateY(-4px) scale(1.02);
+    transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  
+  svg {
+    z-index: 1;
   }
 `;
 

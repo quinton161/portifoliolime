@@ -4,6 +4,7 @@ import { IconType } from 'react-icons';
 import { IconBaseProps } from 'react-icons/lib';
 import { FaGithub } from 'react-icons/fa';
 import { SiVercel } from 'react-icons/si';
+import GlassmorphismCard from './GlassmorphismCard';
 
 const Section = styled.section`
   background: linear-gradient(to bottom right, #000000, #111111);
@@ -47,11 +48,11 @@ const Grid = styled.div`
   }
 `;
 
-const Card = styled.div`
+const Card = styled(GlassmorphismCard)`
   position: relative;
-  border-radius: 1rem;
   overflow: hidden;
   aspect-ratio: 16/12;
+  padding: 0;
   
   @media (min-width: 640px) {
     aspect-ratio: 4/3;
@@ -67,9 +68,10 @@ const ProjectImage = styled.img`
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
+  border-radius: 1.5rem;
   
   ${Card}:hover & {
-    transform: scale(1.1);
+    transform: scale(1.05);
   }
 `;
 
@@ -79,42 +81,80 @@ const Overlay = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: linear-gradient(135deg, 
+    rgba(0, 0, 0, 0.8) 0%, 
+    rgba(50, 205, 50, 0.2) 50%, 
+    rgba(0, 0, 0, 0.9) 100%
+  );
+  backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   padding: 2rem;
+  border-radius: 1.5rem;
+  z-index: 10;
 `;
 
 const ProjectTitle = styled.h3`
   color: white;
-  font-size: 1.5rem;
+  font-size: 1.8rem;
+  font-weight: 600;
   margin-bottom: 1rem;
   text-align: center;
+  z-index: 15;
+  position: relative;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 `;
 
 const ProjectDescription = styled.p`
-  color: #d1d1d1;
+  color: #e5e5e5;
   text-align: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  z-index: 15;
+  position: relative;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  max-width: 280px;
 `;
 
 const IconsContainer = styled.div`
   display: flex;
   gap: 1.5rem;
+  z-index: 20;
+  position: relative;
 `;
 
 const IconLink = styled.a`
   color: white;
-  font-size: 1.5rem;
-  transition: all 0.3s ease;
+  font-size: 1.8rem;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+  position: relative;
   
   &:hover {
     color: #32CD32;
-    transform: translateY(-3px);
+    transform: translateY(-4px) scale(1.1);
+    background: rgba(50, 205, 50, 0.15);
+    border-color: rgba(50, 205, 50, 0.3);
+    box-shadow: 
+      0 8px 20px rgba(50, 205, 50, 0.2),
+      0 4px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  &:active {
+    transform: translateY(-2px) scale(1.05);
   }
 `;
 
@@ -183,7 +223,7 @@ const Portfolio = () => {
         <Title>Portfolio</Title>
         <Grid>
           {projects.map((project, index) => (
-            <Card key={index}>
+            <Card key={index} variant="image">
               <ProjectImage src={project.image} alt={project.title} />
               <Overlay className="overlay">
                 <ProjectTitle>{project.title}</ProjectTitle>

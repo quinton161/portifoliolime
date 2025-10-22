@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import GlassmorphismCard from './GlassmorphismCard';
 
 const Section = styled.section`
   background: linear-gradient(to bottom right, #000000, #111111);
@@ -55,18 +56,8 @@ const SkillsGrid = styled.div`
   gap: 1.5rem;
 `;
 
-const SkillCard = styled.div`
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(50, 205, 50, 0.1);
-  border-radius: 1rem;
-  padding: 2rem;
+const SkillCard = styled(GlassmorphismCard)`
   text-align: center;
-  transition: all 0.3s ease;
-
-  &:hover {
-    border-color: #32CD32;
-    box-shadow: 0 0 20px rgba(50, 205, 50, 0.3);
-  }
 `;
 
 const SkillTitle = styled.h3`
@@ -79,8 +70,8 @@ const SkillDescription = styled.p`
   color: #d1d1d1;
 `;
 
-const GroupedSkillsCard = styled(SkillCard)`
-  background: rgba(50, 205, 50, 0.1);
+const GroupedSkillsCard = styled(GlassmorphismCard)`
+  text-align: center;
 `;
 
 const EducationGrid = styled.div`
@@ -89,18 +80,8 @@ const EducationGrid = styled.div`
   gap: 1.5rem;
 `;
 
-const EducationCard = styled.div`
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(50, 205, 50, 0.1);
-  border-radius: 1rem;
-  padding: 2rem;
+const EducationCard = styled(GlassmorphismCard)`
   text-align: center;
-  transition: all 0.3s ease;
-
-  &:hover {
-    border-color: #32CD32;
-    box-shadow: 0 0 20px rgba(50, 205, 50, 0.3);
-  }
 `;
 
 const EducationTitle = styled.h3`
@@ -142,17 +123,17 @@ const Resume = () => {
 
         {activeTab === 'education' && (
           <EducationGrid>
-            <EducationCard>
+            <EducationCard variant="gradient">
               <EducationTitle>Software Development</EducationTitle>
               <EducationDescription>Uncommon.org, 2024</EducationDescription>
               <EducationDescription>Learned full-stack development with modern technologies.</EducationDescription>
             </EducationCard>
-            <EducationCard>
+            <EducationCard variant="gradient">
               <EducationTitle>UI/UX</EducationTitle>
               <EducationDescription>Uncommon.org, 2024</EducationDescription>
               <EducationDescription>Basics.</EducationDescription>
             </EducationCard>
-            <EducationCard>
+            <EducationCard variant="gradient">
               <EducationTitle>Digital Marketing</EducationTitle>
               <EducationDescription>Uncommon.org, 2024</EducationDescription>
               <EducationDescription>Gained skills in SEO, content marketing, and analytics.</EducationDescription>
@@ -162,12 +143,12 @@ const Resume = () => {
 
         {activeTab === 'skills' && (
           <SkillsGrid>
-            <GroupedSkillsCard>
+            <GroupedSkillsCard variant="highlight">
               <SkillTitle>HTML, CSS, JavaScript</SkillTitle>
               <SkillDescription>Fundamental web technologies for building interactive websites.</SkillDescription>
             </GroupedSkillsCard>
             {skills.slice(1).map((skill, index) => (
-              <SkillCard key={index}>
+              <SkillCard key={index} variant="default">
                 <SkillTitle>{skill.title}</SkillTitle>
                 <SkillDescription>{skill.description}</SkillDescription>
               </SkillCard>

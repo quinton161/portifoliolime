@@ -1,11 +1,6 @@
 import { useState, RefObject } from 'react';
-import styled, { keyframes } from 'styled-components';
-
-const glowAnimation = keyframes`
-  0% { text-shadow: 0 0 10px rgba(50, 205, 50, 0.5); }
-  50% { text-shadow: 0 0 20px rgba(50, 205, 50, 0.8), 0 0 30px rgba(50, 205, 50, 0.3); }
-  100% { text-shadow: 0 0 10px rgba(50, 205, 50, 0.5); }
-`;
+import styled from 'styled-components';
+import QuintonLogo from './QuintonLogo';
 
 const HeaderContainer = styled.header`
   position: fixed;
@@ -33,36 +28,28 @@ const NavContent = styled.div`
 const LogoContainer = styled.a`
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   text-decoration: none;
-`;
-
-const LogoSymbol = styled.div`
-  font-size: 1.8rem;
-  font-weight: 800;
-  color: #32CD32;
-  animation: ${glowAnimation} 3s infinite;
-  font-family: 'Orbitron', sans-serif;
+  transition: all 0.3s ease;
   
-  &::before {
-    content: '<';
-    opacity: 0.7;
-  }
-  
-  &::after {
-    content: '/>';
-    opacity: 0.7;
+  &:hover {
+    transform: translateY(-1px);
   }
 `;
 
 const LogoText = styled.span`
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  background: linear-gradient(120deg, #32CD32, #90EE90);
+  background: linear-gradient(135deg, #32CD32, #22C55E, #10B981);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-family: 'Poppins', sans-serif;
+  letter-spacing: -0.02em;
+  
+  @media (max-width: 640px) {
+    font-size: 1.3rem;
+  }
 `;
 
 const DesktopMenu = styled.nav`
@@ -205,7 +192,7 @@ const Header: React.FC<HeaderProps> = ({ heroRef, whatIDoRef, resumeRef, portfol
       <Nav>
         <NavContent>
           <LogoContainer href="/">
-            <LogoSymbol>Q</LogoSymbol>
+            <QuintonLogo size="small" animated={true} />
             <LogoText>Quinton</LogoText>
           </LogoContainer>
 

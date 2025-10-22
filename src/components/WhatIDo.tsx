@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { IconType } from 'react-icons';
 import { IconBaseProps } from 'react-icons/lib';
 import { FaLaptopCode, FaPalette, FaGlobe, FaCopy, FaCamera, FaChartLine } from 'react-icons/fa';
+import GlassmorphismCard from './GlassmorphismCard';
 
 const Section = styled.section`
   background: linear-gradient(to bottom right, #000000, #111111);
@@ -55,21 +56,13 @@ const Grid = styled.div`
   }
 `;
 
-const Card = styled.div`
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(50, 205, 50, 0.1);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+const Card = styled(GlassmorphismCard)`
+  text-align: center;
   
   &:hover {
-    transform: translateY(-10px);
-    border-color: #32CD32;
-    box-shadow: 0 0 20px rgba(50, 205, 50, 0.3);
-    
     .icon {
-      color: #32CD32;
+      color: #ff9a00;
+      transform: scale(1.1);
     }
   }
   
@@ -82,7 +75,8 @@ const IconWrapper = styled.div`
   font-size: 2.5rem;
   color: #fff;
   margin-bottom: 1.5rem;
-  transition: color 0.3s ease;
+  transition: all 0.3s ease;
+  display: inline-block;
 `;
 
 const CardTitle = styled.h3`
@@ -135,7 +129,7 @@ const WhatIDo = () => {
         <Title>What I Do</Title>
         <Grid>
           {services.map((service, index) => (
-            <Card key={index}>
+            <Card key={index} variant="gradient">
               <IconWrapper className="icon">
                 {renderIcon(service.icon)}
               </IconWrapper>
