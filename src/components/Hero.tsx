@@ -522,8 +522,8 @@ const Hero = () => {
     },
     {
       Icon: FaLinkedin,
-      url: "https://linkedin.com/in/yourusername",
-      label: "LinkedIn Profile"
+      url: "www.linkedin.com/in/quinton-ndlovu-40b559341",
+      label: "Quinton Ndlovu"
     },
     {
       Icon: FaFacebook,
