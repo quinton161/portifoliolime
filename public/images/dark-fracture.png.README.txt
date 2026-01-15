@@ -1,0 +1,5 @@
+/*
+  dark-fracture.png - seamless dark fractured polygon background for glassmorphism
+  You must provide this image in /public/images/dark-fracture.png for the cracked effect to work.
+  Download or generate a seamless dark polygon background (e.g., from freepik, unsplash, or generative tools).
+*/
