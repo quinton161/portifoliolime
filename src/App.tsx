@@ -6,6 +6,7 @@ import Portfolio from './components/Portfolio';
 import Resume from './components/Resume';
 import Contact from './components/Contact';
 import SplashScreen from './components/SplashScreen';
+import VoiceAssistant from './components/VoiceAssistant';
 
 const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState(true);
@@ -61,6 +62,7 @@ const App: React.FC = () => {
             </div>
           </div>
         </footer>
+        <VoiceAssistant />
       </div>
     </>
   );
