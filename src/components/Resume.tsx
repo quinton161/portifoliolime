@@ -1,170 +1,96 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
-import GlassmorphismCard from './GlassmorphismCard';
 
-const Section = styled.section`
-  background: rgba(0,0,0,0.60);
-  padding: 5rem 1rem;
-`;
+const Resume: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'education' | 'skills'>('education');
 
-const Container = styled.div`
-  max-width: 80rem;
-  margin: 0 auto;
-`;
-
-const Title = styled.h2`
-  color: white;
-  font-size: 2.5rem;
-  text-align: center;
-  margin-bottom: 3rem;
-  z-index: 100;
-  position: relative;
-  text-shadow: 0 4px 24px #000, 0 1px 2px #000, 0 0 2px #32CD32;
-
-  &::after {
-    content: '';
-    display: block;
-    width: 80px;
-    height: 4px;
-    background: #32CD32;
-    margin: 1rem auto;
-  }
-`;
-
-const TabsContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: 2rem;
-  margin-bottom: 3rem;
-`;
-
-const Tab = styled.button<{ active?: boolean }>`
-  background: ${props => (props.active ? 'rgba(50, 205, 50, 0.18)' : 'rgba(20,20,20,0.55)')};
-  color: ${props => (props.active ? '#32CD32' : '#fff')};
-  border: 2px solid ${props => (props.active ? '#32CD32' : 'rgba(255, 255, 255, 0.16)')};
-  padding: 0.75rem 2rem;
-  border-radius: 2rem;
-  font-size: 1.1rem;
-  font-weight: 600;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.14);
-  text-shadow: 0 2px 8px #000, 0 1px 2px #32CD32;
-  transition: all 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
-  cursor: pointer;
-
-  &:hover {
-    border-color: #32CD32;
-    color: #32CD32;
-    background: rgba(50, 205, 50, 0.22);
-  }
-`;
-
-const SkillsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-`;
-
-const SkillCard = styled(GlassmorphismCard)`
-  text-align: center;
-`;
-
-const SkillTitle = styled.h3`
-  color: white;
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-`;
-
-const SkillDescription = styled.p`
-  color: #d1d1d1;
-`;
-
-const GroupedSkillsCard = styled(GlassmorphismCard)`
-  text-align: center;
-`;
-
-const EducationGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-`;
-
-const EducationCard = styled(GlassmorphismCard)`
-  text-align: center;
-`;
-
-const EducationTitle = styled.h3`
-  color: white;
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-`;
-
-const EducationDescription = styled.p`
-  color: #d1d1d1;
-  margin: 0.5rem 0;
-`;
-
-const Resume = () => {
-  const [activeTab, setActiveTab] = useState('education');
+  const education = [
+    {
+      title: 'Software Development',
+      institution: 'Uncommon.org',
+      period: '2024',
+      description: 'Focused on full-stack web development, modern JavaScript frameworks, and agile methodologies.'
+    },
+    {
+      title: 'UI/UX Design',
+      institution: 'Uncommon.org',
+      period: '2024',
+      description: 'Studied design principles, user research, and prototyping tools to create intuitive digital experiences.'
+    },
+    {
+      title: 'Digital Marketing',
+      institution: 'Uncommon.org',
+      period: '2024',
+      description: 'Gained expertise in SEO, content strategy, and data analytics for digital products.'
+    }
+  ];
 
   const skills = [
-    { title: 'HTML, CSS, JavaScript', description: 'Fundamental web technologies for building interactive websites.' },
-    { title: 'React', description: 'A JavaScript library for building user interfaces, focusing on component-based architecture.' },
-    { title: 'TypeScript', description: 'A typed superset of JavaScript that enhances code quality and maintainability.' },
-    { title: 'Tailwind CSS', description: 'A utility-first CSS framework for rapid UI development with a focus on customization.' },
-    { title: 'Next.js', description: 'A React framework for server-side rendering and static site generation, enhancing performance.' },
-    { title: 'Firebase', description: 'A platform developed by Google for building and managing mobile and web applications with real-time databases, authentication, and hosting.' },
-    { title: 'MongoDB', description: 'A NoSQL database known for its scalability and flexibility in handling JSON-like documents.' },
+    { title: 'Front-End', items: ['React', 'TypeScript', 'Tailwind CSS', 'Next.js'] },
+    { title: 'Back-End', items: ['Node.js', 'Firebase', 'MongoDB', 'PostgreSQL'] },
+    { title: 'Tools & Design', items: ['Figma', 'Git', 'Vercel', 'Postman'] }
   ];
 
   return (
-    <Section>
-      <Container>
-        <Title>Resume</Title>
-        <TabsContainer>
-          <Tab active={activeTab === 'education'} onClick={() => setActiveTab('education')}>
+    <section id="resume" className="bg-white py-24 px-8 font-sans">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-16">
+          <h2 className="text-sm uppercase tracking-[0.3em] text-gray-500 font-semibold mb-4">Resume</h2>
+          <p className="text-5xl font-bold tracking-tight text-[#1D1D1F] max-w-2xl">
+            My professional journey and technical expertise.
+          </p>
+        </div>
+
+        <div className="flex gap-8 mb-12 border-b border-gray-100">
+          <button
+            onClick={() => setActiveTab('education')}
+            className={`pb-4 text-lg font-semibold transition-all ${
+              activeTab === 'education'
+                ? 'text-black border-b-2 border-black'
+                : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
             Education
-          </Tab>
-          <Tab active={activeTab === 'skills'} onClick={() => setActiveTab('skills')}>
+          </button>
+          <button
+            onClick={() => setActiveTab('skills')}
+            className={`pb-4 text-lg font-semibold transition-all ${
+              activeTab === 'skills'
+                ? 'text-black border-b-2 border-black'
+                : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
             Skills
-          </Tab>
-        </TabsContainer>
+          </button>
+        </div>
 
-        {activeTab === 'education' && (
-          <EducationGrid>
-            <EducationCard variant="default">
-              <EducationTitle>Software Development</EducationTitle>
-              <EducationDescription>Uncommon.org, 2024</EducationDescription>
-              <EducationDescription>Learned full-stack development with modern technologies.</EducationDescription>
-            </EducationCard>
-            <EducationCard variant="default">
-              <EducationTitle>UI/UX</EducationTitle>
-              <EducationDescription>Uncommon.org, 2024</EducationDescription>
-              <EducationDescription>Basics.</EducationDescription>
-            </EducationCard>
-            <EducationCard variant="default">
-              <EducationTitle>Digital Marketing</EducationTitle>
-              <EducationDescription>Uncommon.org, 2024</EducationDescription>
-              <EducationDescription>Gained skills in SEO, content marketing, and analytics.</EducationDescription>
-            </EducationCard>
-          </EducationGrid>
-        )}
-
-        {activeTab === 'skills' && (
-          <SkillsGrid>
-            <GroupedSkillsCard variant="default">
-              <SkillTitle>HTML, CSS, JavaScript</SkillTitle>
-              <SkillDescription>Fundamental web technologies for building interactive websites.</SkillDescription>
-            </GroupedSkillsCard>
-            {skills.slice(1).map((skill, index) => (
-              <SkillCard key={index} variant="default">
-                <SkillTitle>{skill.title}</SkillTitle>
-                <SkillDescription>{skill.description}</SkillDescription>
-              </SkillCard>
-            ))}
-          </SkillsGrid>
-        )}
-      </Container>
-    </Section>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          {activeTab === 'education' ? (
+            education.map((item, index) => (
+              <div key={index} className="relative pl-8 border-l-2 border-gray-100 pb-12 last:pb-0">
+                <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-black"></div>
+                <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">{item.period}</span>
+                <h3 className="text-2xl font-bold text-[#1D1D1F] mt-2">{item.title}</h3>
+                <p className="text-lg font-medium text-gray-600 mb-4">{item.institution}</p>
+                <p className="text-gray-500 leading-relaxed">{item.description}</p>
+              </div>
+            ))
+          ) : (
+            skills.map((group, index) => (
+              <div key={index} className="bg-[#F5F5F7] p-8 rounded-3xl">
+                <h3 className="text-xl font-bold text-[#1D1D1F] mb-6">{group.title}</h3>
+                <div className="flex flex-wrap gap-3">
+                  {group.items.map((skill, i) => (
+                    <span key={i} className="px-4 py-2 bg-white rounded-xl text-sm font-semibold text-gray-700 shadow-sm">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
   );
 };
 

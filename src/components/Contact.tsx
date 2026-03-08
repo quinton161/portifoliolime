@@ -1,244 +1,103 @@
 import React from 'react';
-import styled from 'styled-components';
-import { FaFacebook, FaTwitter, FaInstagram } from 'react-icons/fa';
-import { IconType } from 'react-icons';
-import { IconBaseProps } from 'react-icons/lib';
+import { FaFacebook, FaTwitter, FaInstagram, FaEnvelope, FaMapMarkerAlt, FaPhone } from 'react-icons/fa';
 
-const Section = styled.section`
-  background: rgba(0,0,0,0.60);
-  padding: 5rem 1rem;
-`;
-
-const Container = styled.div`
-  max-width: 80rem;
-  margin: 0 auto;
-`;
-
-const Title = styled.h2`
-  color: white;
-  font-size: 2.5rem;
-  text-align: center;
-  margin-bottom: 3rem;
-  z-index: 100;
-  position: relative;
-  text-shadow: 0 4px 24px #000, 0 1px 2px #000, 0 0 2px #FFA500;
-  
-  &::after {
-    content: '';
-    display: block;
-    width: 80px;
-    height: 4px;
-    background: #FFA500;
-    margin: 1rem auto;
-  }
-`;
-
-const ContactCard = styled.div`
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 165, 0, 0.1);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  backdrop-filter: blur(10px);
-  max-width: 1000px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-  
-  @media (min-width: 640px) {
-    padding: 2rem;
-  }
-  
-  @media (min-width: 768px) {
-    padding: 3rem;
-    grid-template-columns: 1.5fr 1fr;
-  }
-`;
-
-const FormSection = styled.div`
-  flex: 1;
-`;
-
-const InfoSection = styled.div`
-  color: white;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-`;
-
-const Form = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  
-  @media (min-width: 640px) {
-    gap: 1.5rem;
-  }
-`;
-
-const Input = styled.input`
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 165, 0, 0.1);
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-  color: white;
-  transition: all 0.3s ease;
-  
-  &:focus {
-    outline: none;
-    border-color: #FFA500;
-    box-shadow: 0 0 10px rgba(255, 165, 0, 0.2);
-  }
-  
-  &::placeholder {
-    color: rgba(255, 255, 255, 0.5);
-  }
-  
-  @media (min-width: 640px) {
-    padding: 1rem;
-  }
-`;
-
-const TextArea = styled.textarea`
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 165, 0, 0.1);
-  border-radius: 0.5rem;
-  padding: 1rem;
-  color: white;
-  min-height: 120px;
-  resize: vertical;
-  transition: all 0.3s ease;
-  
-  &:focus {
-    outline: none;
-    border-color: #FFA500;
-    box-shadow: 0 0 10px rgba(255, 165, 0, 0.2);
-  }
-  
-  &::placeholder {
-    color: rgba(255, 255, 255, 0.5);
-  }
-  
-  @media (min-width: 640px) {
-    min-height: 150px;
-  }
-`;
-
-const SubmitButton = styled.button`
-  background: #FFA500;
-  color: white;
-  padding: 1rem 2rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: #FF8C00;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(255, 165, 0, 0.3);
-  }
-`;
-
-const ContactInfo = styled.div`
-  h3 {
-    color: #FFA500;
-    font-size: 1.2rem;
-    margin-bottom: 0.5rem;
-  }
-  
-  p {
-    color: #d1d1d1;
-    line-height: 1.6;
-  }
-`;
-
-const SocialLinks = styled.div`
-  display: flex;
-  gap: 1rem;
-`;
-
-const SocialIcon = styled.a`
-  color: white;
-  font-size: 1.5rem;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    color: #FFA500;
-    transform: translateY(-3px);
-  }
-`;
-
-const Contact = () => {
-  const renderIcon = (Icon: IconType) => {
-    const Component = Icon as React.ComponentType<IconBaseProps>;
-    return <Component size={24} />;
-  };
-
+const Contact: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Add your form submission logic here
+    // Form submission logic
+  };
+
+  const renderIcon = (Icon: any) => {
+    return React.createElement(Icon, { size: 20 });
   };
 
   return (
-    <Section>
-      <Container>
-        <Title>Let's talk</Title>
-        <ContactCard>
-          <FormSection>
-            <Form onSubmit={handleSubmit}>
-              <Input 
-                type="text" 
-                placeholder="Your Name" 
-                required 
-              />
-              <Input 
-                type="email" 
-                placeholder="Your Email" 
-                required 
-              />
-              <TextArea 
-                placeholder="Type something if you want..." 
-                required 
-              />
-              <SubmitButton type="submit">
+    <section id="contact" className="bg-[#F5F5F7] py-24 px-8 font-sans">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-24">
+          <div>
+            <h2 className="text-sm uppercase tracking-[0.3em] text-gray-500 font-semibold mb-4">Contact</h2>
+            <p className="text-6xl font-bold tracking-tight text-[#1D1D1F] mb-8 leading-tight">
+              Let's create something great together.
+            </p>
+            <p className="text-xl text-gray-600 mb-12 max-w-md leading-relaxed">
+              Whether you have a question or just want to say hi, I'll try my best to get back to you!
+            </p>
+
+            <div className="space-y-8">
+              <div className="flex items-center gap-6">
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-black">
+                  {renderIcon(FaEnvelope)}
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Email</p>
+                  <p className="text-lg font-semibold text-[#1D1D1F]">quintonndlovu161@gmail.com</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-black">
+                  {renderIcon(FaPhone)}
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Phone</p>
+                  <p className="text-lg font-semibold text-[#1D1D1F]">+263 785385293</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-black">
+                  {renderIcon(FaMapMarkerAlt)}
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Location</p>
+                  <p className="text-lg font-semibold text-[#1D1D1F]">Victoria Falls, Zimbabwe</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-12 rounded-[3rem] shadow-xl shadow-gray-200/50">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-500 uppercase tracking-wider ml-2">Name</label>
+                  <input 
+                    type="text" 
+                    placeholder="John Doe" 
+                    className="w-full px-6 py-4 bg-[#F5F5F7] rounded-2xl border-2 border-transparent focus:border-black focus:bg-white transition-all outline-none font-medium"
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-500 uppercase tracking-wider ml-2">Email</label>
+                  <input 
+                    type="email" 
+                    placeholder="john@example.com" 
+                    className="w-full px-6 py-4 bg-[#F5F5F7] rounded-2xl border-2 border-transparent focus:border-black focus:bg-white transition-all outline-none font-medium"
+                    required 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-500 uppercase tracking-wider ml-2">Message</label>
+                <textarea 
+                  placeholder="Tell me about your project..." 
+                  rows={5}
+                  className="w-full px-6 py-4 bg-[#F5F5F7] rounded-2xl border-2 border-transparent focus:border-black focus:bg-white transition-all outline-none font-medium resize-none"
+                  required 
+                />
+              </div>
+              <button 
+                type="submit"
+                className="w-full py-5 bg-black text-white rounded-2xl font-bold text-lg hover:bg-gray-800 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+              >
                 Send Message
-              </SubmitButton>
-            </Form>
-          </FormSection>
-          
-          <InfoSection>
-            <ContactInfo>
-              <h3>Address</h3>
-              <p>Nketa, Bulawayo, Zimbabwe</p>
-            </ContactInfo>
-            
-            <ContactInfo>
-              <h3>Contact</h3>
-              <p>+263 785385293</p>
-              <p>quintonndlovu161@gmail.com</p>
-            </ContactInfo>
-            
-            <ContactInfo>
-              <h3>Follow Me</h3>
-              <SocialLinks>
-                <SocialIcon href="#" aria-label="Facebook">
-                  {renderIcon(FaFacebook)}
-                </SocialIcon>
-                <SocialIcon href="#" aria-label="Twitter">
-                  {renderIcon(FaTwitter)}
-                </SocialIcon>
-                <SocialIcon href="#" aria-label="Instagram">
-                  {renderIcon(FaInstagram)}
-                </SocialIcon>
-              </SocialLinks>
-            </ContactInfo>
-          </InfoSection>
-        </ContactCard>
-      </Container>
-    </Section>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 };
 
-export default Contact; 
+export default Contact;
