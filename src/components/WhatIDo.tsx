@@ -1,6 +1,5 @@
 import React from 'react';
 import { FaLaptopCode, FaGlobe, FaChartLine } from 'react-icons/fa';
-import { IconType } from 'react-icons';
 
 const WhatIDo: React.FC = () => {
   const services = [

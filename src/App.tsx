@@ -56,8 +56,8 @@ const App: React.FC = () => {
             <div className="font-bold text-xl tracking-tighter text-black">Quinton</div>
             <p className="text-gray-500 text-sm">© 2024 Quinton Ndlovu. All rights reserved.</p>
             <div className="flex gap-8 text-sm font-medium text-gray-500">
-              <a href="#" className="hover:text-black transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-black transition-colors">Terms of Service</a>
+              <span className="hover:text-black transition-colors cursor-pointer">Privacy Policy</span>
+              <span className="hover:text-black transition-colors cursor-pointer">Terms of Service</span>
             </div>
           </div>
         </footer>
