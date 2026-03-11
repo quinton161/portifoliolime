@@ -625,6 +625,19 @@ const VoiceAssistant: React.FC = () => {
     try {
       if (audioContextRef.current) return;
 
+      console.log('JARVIS: Starting audio visualizer - requesting microphone...');
+      
+      // Check if mediaDevices API is available
+      if (!navigator.mediaDevices) {
+        console.error('JARVIS: navigator.mediaDevices is not available for visualizer');
+        return;
+      }
+      
+      // Enumerate devices first
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioDevices = devices.filter(d => d.kind === 'audioinput');
+      console.log('JARVIS: Visualizer - found', audioDevices.length, 'audio devices');
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
@@ -675,10 +688,40 @@ const VoiceAssistant: React.FC = () => {
 
   const initMicrophone = useCallback(async (isAuto = false) => {
     try {
-      console.log('JARVIS: Initializing Microphone...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('JARVIS: Checking if navigator.mediaDevices is available...');
+      
+      // Check if mediaDevices API is available
+      if (!navigator.mediaDevices) {
+        console.error('JARVIS: navigator.mediaDevices is not available');
+        setStatusText('Mic Offline - API Not Supported');
+        return false;
+      }
+      
+      console.log('JARVIS: Checking for available devices...');
+      
+      // First, enumerate devices to see if any audio input devices exist
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioDevices = devices.filter(d => d.kind === 'audioinput');
+      
+      console.log('JARVIS: Available audio input devices:', audioDevices.length);
+      audioDevices.forEach((device, i) => {
+        console.log(`JARVIS: Device ${i}: ${device.label || 'No label'} (${device.deviceId})`);
+      });
+      
+      if (audioDevices.length === 0) {
+        console.error('JARVIS: No audio input devices found');
+        setStatusText('Mic Offline - No Devices');
+        return false;
+      }
+      
+      console.log('JARVIS: Requesting microphone access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: true,
+        video: false
+      });
       streamRef.current = stream;
       
+      console.log('JARVIS: Microphone access granted! Stream:', stream.id);
       setStatusText('System Ready');
       if (!isAuto) speak("Microphone active. Systems optimal.");
       
@@ -687,9 +730,31 @@ const VoiceAssistant: React.FC = () => {
       }
       startAudioVisualizer();
       return true;
-    } catch (err) {
-      console.error("JARVIS: Mic Access Error:", err);
-      setStatusText('Mic Offline');
+    } catch (err: any) {
+      console.error('JARVIS: Mic Access Error:', err);
+      console.error('JARVIS: Error name:', err.name);
+      console.error('JARVIS: Error message:', err.message);
+      console.error('JARVIS: Error constraint:', err.constraint);
+      
+      // Provide specific feedback based on error type
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        console.error('JARVIS: Microphone permission was denied by the user');
+        setStatusText('Mic Blocked - Check Permissions');
+        speak("Microphone access denied. Please allow microphone access in your browser settings.");
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        console.error('JARVIS: No microphone found');
+        setStatusText('Mic Offline - No Microphone');
+        speak("No microphone detected. Please connect a microphone and try again.");
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        console.error('JARVIS: Microphone is in use by another application');
+        setStatusText('Mic Offline - In Use');
+        speak("Microphone is currently in use by another application. Please close other apps using the microphone.");
+      } else if (err.name === 'OverconstrainedError') {
+        console.error('JARVIS: Microphone constraints not satisfied');
+        setStatusText('Mic Offline - Constraints Error');
+      } else {
+        setStatusText('Mic Offline');
+      }
       return false;
     }
   }, [speak, startAudioVisualizer]);
