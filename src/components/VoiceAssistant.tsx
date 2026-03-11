@@ -26,14 +26,6 @@ const loadConversation = (): Message[] => {
   }
 };
 
-const saveConversation = (messages: Message[]) => {
-  try {
-    localStorage.setItem('jarvis_conversation', JSON.stringify(messages.slice(-50)));
-  } catch {
-    // Ignore storage errors
-  }
-};
-
 // ============================================
 // MAIN COMPONENT
 // ============================================
@@ -66,8 +58,12 @@ const VoiceAssistant: React.FC = () => {
 
   useEffect(() => {
     messagesRef.current = messages;
+    try {
+      localStorage.setItem('jarvis_conversation', JSON.stringify(messages.slice(-50)));
+    } catch {
+      // Ignore storage errors
+    }
   }, [messages]);
- 
 
   // Toggle listening
   const startListening = useCallback(() => {
@@ -549,128 +545,38 @@ const VoiceAssistant: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Save conversation
-  useEffect(() => {
-    saveConversation(messages);
-  }, [messages]);
-
-  // Initial greeting and auto-speak
-  const hasGreetedRef = useRef(false);
-
-  useEffect(() => {
-    if (hasGreetedRef.current) return;
-    
-    const timer = setTimeout(() => {
-      // Final check inside timer to be sure
-      if (hasGreetedRef.current) return;
-      hasGreetedRef.current = true;
-      
-      setIsOpen(true);
-      const isOwner = localStorage.getItem('jarvis_owner') === 'true';
-      const greeting = isOwner 
-        ? "Hello Master! I'm ready. I'm listening... say 'Jarvis' or just start speaking to me!" 
-        : "Greetings! I'm JARVIS, Quinton's AI assistant. I'm currently active and listening. How can I help you learn about Quinton today?";
-      
-      const initialMessage: Message = {
-        id: 0,
-        text: greeting,
-        isUser: false,
-        timestamp: new Date()
-      };
-      
-      // Use functional update to ensure we don't trigger unnecessary re-renders or depend on stale state
-      setMessages(prev => {
-        // If we already have messages (besides maybe a previous initial greeting), don't add another
-        if (prev.length > 0 && prev[0].id === 0) return prev;
-        return [initialMessage];
-      });
-      
-      // Speak and start listening after greeting
-      if (!isMuted) speak(greeting);
-      
-      // Auto-start listening mode after a short delay
-      setTimeout(() => {
-        startListening();
-      }, 1000);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [speak, startListening, isMuted, isListening, isOpen]);
-
-  // Toggle wake word
-  const toggleWakeWord = () => {
-    const newState = !wakeWordEnabled;
-    setWakeWordEnabled(newState);
-    if (newState) {
-      setStatusText('Wake Word Active');
-      speak("Wake word enabled. Say 'Jarvis' to activate me.");
-    } else {
-      stopWakeWordListening();
-      setStatusText('System Ready');
-      speak("Wake word disabled.");
-    }
-  };
-
-  // Clear conversation
-  const clearConversation = () => {
-    setMessages([]);
-    localStorage.removeItem('jarvis_conversation');
-    speak("Conversation cleared.");
-  };
-
-  const renderIcon = (Icon: any, size: number) => {
-    return React.createElement(Icon, { size }) as React.ReactElement;
-  };
-
   const startAudioVisualizer = useCallback(async () => {
     try {
       if (audioContextRef.current) return;
 
       console.log('JARVIS: Starting audio visualizer - requesting microphone...');
       
-      // Check if mediaDevices API is available
-      if (!navigator.mediaDevices) {
-        console.error('JARVIS: navigator.mediaDevices is not available for visualizer');
-        return;
+      if (!streamRef.current) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
       }
-      
-      // Enumerate devices first
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioDevices = devices.filter(d => d.kind === 'audioinput');
-      console.log('JARVIS: Visualizer - found', audioDevices.length, 'audio devices');
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaStreamSource(stream);
-      
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      
-      audioContextRef.current = audioContext;
-      analyserRef.current = analyser;
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      const source = audioContextRef.current.createMediaStreamSource(streamRef.current);
+      source.connect(analyserRef.current);
+      analyserRef.current.fftSize = 256;
 
-      const bufferLength = analyser.frequencyBinCount;
+      const bufferLength = analyserRef.current.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
 
-      const updateVisualizer = () => {
+      const updateAudioLevel = () => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteFrequencyData(dataArray);
-        
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
-        }
+        const sum = dataArray.reduce((a, b) => a + b, 0);
         const average = sum / bufferLength;
-        setAudioLevel(average); // 0 to 255
-        
-        animationFrameRef.current = requestAnimationFrame(updateVisualizer);
+        setAudioLevel(average);
+        animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
       };
 
-      updateVisualizer();
-    } catch (err) {
-      console.error("Visualizer Error:", err);
+      updateAudioLevel();
+    } catch (e) {
+      console.error('Visualizer error:', e);
     }
   }, []);
 
@@ -688,6 +594,13 @@ const VoiceAssistant: React.FC = () => {
 
   const initMicrophone = useCallback(async (isAuto = false) => {
     try {
+      console.log('JARVIS: Initializing Microphone...');
+      
+      // Stop any existing stream before requesting a new one
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
       console.log('JARVIS: Checking if navigator.mediaDevices is available...');
       
       // Check if mediaDevices API is available
@@ -710,7 +623,7 @@ const VoiceAssistant: React.FC = () => {
       
       if (audioDevices.length === 0) {
         console.error('JARVIS: No audio input devices found');
-        setStatusText('Mic Offline - No Devices');
+        setStatusText('Mic Offline - No Microphone');
         return false;
       }
       
@@ -725,20 +638,21 @@ const VoiceAssistant: React.FC = () => {
       setStatusText('System Ready');
       if (!isAuto) speak("Microphone active. Systems optimal.");
       
+      // Restart speech recognition to hook into the new stream/permission
       if (recognitionRef.current) {
-        try { recognitionRef.current.start(); } catch (e) {}
+        try { recognitionRef.current.stop(); } catch (e) {}
+        setTimeout(() => {
+          try { recognitionRef.current.start(); } catch (e) {}
+        }, 300);
       }
+      
       startAudioVisualizer();
       return true;
     } catch (err: any) {
-      console.error('JARVIS: Mic Access Error:', err);
-      console.error('JARVIS: Error name:', err.name);
-      console.error('JARVIS: Error message:', err.message);
-      console.error('JARVIS: Error constraint:', err.constraint);
-      
-      // Provide specific feedback based on error type
+      console.error("JARVIS: Mic Access Error:", err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        console.error('JARVIS: Microphone permission was denied by the user');
+        setStatusText('Mic Blocked');
+        speak("I cannot hear you. Please allow microphone access in your browser address bar.");
         setStatusText('Mic Blocked - Check Permissions');
         speak("Microphone access denied. Please allow microphone access in your browser settings.");
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
@@ -767,6 +681,32 @@ const VoiceAssistant: React.FC = () => {
     }
     return () => stopAudioVisualizer();
   }, [isOpen, isListening, wakeWordEnabled, startAudioVisualizer, stopAudioVisualizer]);
+
+  // Helper to render icons safely
+  const renderIcon = (Icon: any, size: number) => {
+    return React.createElement(Icon, { size }) as React.ReactElement;
+  };
+
+  // Toggle wake word
+  const toggleWakeWord = () => {
+    const newState = !wakeWordEnabled;
+    setWakeWordEnabled(newState);
+    if (newState) {
+      setStatusText('Wake Word Active');
+      speak("Wake word enabled. Say 'Jarvis' to activate me.");
+    } else {
+      stopWakeWordListening();
+      setStatusText('System Ready');
+      speak("Wake word disabled.");
+    }
+  };
+
+  // Clear conversation
+  const clearConversation = () => {
+    setMessages([]);
+    localStorage.removeItem('jarvis_conversation');
+    speak("Conversation cleared.");
+  };
 
   const JARVISOrb = () => {
     let stateClass = "bg-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.5)]";
