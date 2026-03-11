@@ -35,19 +35,19 @@ const App: React.FC = () => {
         />
         
         <main>
-          <div ref={aboutRef}>
+          <div ref={aboutRef} id="about">
             <AboutMe />
           </div>
-          <div ref={servicesRef}>
+          <div ref={servicesRef} id="services">
             <WhatIDo />
           </div>
-          <div ref={portfolioRef}>
+          <div ref={portfolioRef} id="projects">
             <Portfolio />
           </div>
-          <div ref={resumeRef}>
+          <div ref={resumeRef} id="resume">
             <Resume />
           </div>
-          <div ref={contactRef}>
+          <div ref={contactRef} id="contact">
             <Contact />
           </div>
         </main>

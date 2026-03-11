@@ -19,7 +19,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["node", "@types/styled-components"]
+    "types": ["node", "@types/styled-components", "@google/generative-ai"]
   },
   "include": [
     "src"

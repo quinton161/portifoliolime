@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+httpx
+google-generativeai
+python-dotenv
+psutil
+pyautogui
+screen-brightness-control
+pycaw
+comtypes
