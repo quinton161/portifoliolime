@@ -873,15 +873,65 @@ const VoiceAssistant: React.FC = () => {
   }, []);
 
   const requestMicPermission = async () => {
+    console.log('JARVIS: requestMicPermission called');
+    
+    // Check if mediaDevices API exists
+    if (!navigator.mediaDevices) {
+      console.error('JARVIS: navigator.mediaDevices not available');
+      speak("Your browser doesn't support microphone access.");
+      setStatusText('Browser Not Supported');
+      return;
+    }
+    
+    // First enumerate devices
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter(d => d.kind === 'audioinput');
+      console.log('JARVIS: Found', audioInputs.length, 'audio input devices');
+      
+      if (audioInputs.length === 0) {
+        console.error('JARVIS: No microphone devices found');
+        speak("No microphone detected on this device.");
+        setStatusText('No Microphone');
+        return;
+      }
+      
+      audioInputs.forEach((device, i) => {
+        console.log(`JARVIS: Device ${i}: ${device.label || 'Unlabeled'} (${device.deviceId})`);
+      });
+    } catch (enumErr) {
+      console.error('JARVIS: Error enumerating devices:', enumErr);
+    }
+    
+    // Now request permission
+    try {
+      console.log('JARVIS: Requesting microphone access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('JARVIS: Microphone access granted! Stream ID:', stream.id);
+      
+      streamRef.current = stream;
       speak("Microphone access granted. All systems online.");
       setStatusText('System Ready');
       startWakeWordListening();
       startAudioVisualizer();
-    } catch (err) {
-      console.error("Mic Permission Denied:", err);
-      setStatusText('Mic Blocked');
+    } catch (err: any) {
+      console.error('JARVIS: Mic Permission Error:', err);
+      console.error('JARVIS: Error name:', err.name);
+      console.error('JARVIS: Error message:', err.message);
+      
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setStatusText('Mic Blocked');
+        speak("Microphone access denied. Please click the lock icon in your browser address bar and allow microphone access.");
+      } else if (err.name === 'NotFoundError') {
+        setStatusText('No Microphone');
+        speak("No microphone found on this device.");
+      } else if (err.name === 'NotReadableError') {
+        setStatusText('Mic In Use');
+        speak("Microphone is in use by another application. Please close other apps using the microphone.");
+      } else {
+        setStatusText('Mic Error');
+        speak("Unable to access microphone. Please check your browser settings.");
+      }
     }
   };
 
@@ -959,7 +1009,11 @@ const VoiceAssistant: React.FC = () => {
       {/* Floating Orb Activator (when closed) */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => {
+            setIsOpen(true);
+            // Request mic permission when clicking the orb
+            setTimeout(() => requestMicPermission(), 100);
+          }}
           className="fixed bottom-8 right-8 w-32 h-32 flex items-center justify-center z-50 group transition-all duration-500"
           aria-label="Activate JARVIS"
         >
@@ -998,7 +1052,7 @@ const VoiceAssistant: React.FC = () => {
             </div>
 
             {/* Main Interactive Orb Section */}
-            <div className="relative group cursor-pointer" onClick={statusText === 'Mic Blocked' ? requestMicPermission : toggleListening}>
+            <div className="relative group cursor-pointer" onClick={['Mic Blocked', 'Mic Error', 'No Microphone', 'Mic In Use'].includes(statusText) ? requestMicPermission : toggleListening}>
               <JARVISOrb />
               {/* Voice Subtitles (Floating text under orb) */}
               <div className="absolute top-full left-1/2 -translate-x-1/2 mt-8 w-80 text-center">
