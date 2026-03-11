@@ -1,10 +1,69 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FaTimes, FaVolumeMute, FaVolumeUp, FaBrain, FaCog } from 'react-icons/fa';
+import { FaMicrophone, FaMicrophoneSlash, FaTimes, FaRobot, FaVolumeMute, FaVolumeUp, FaBrain, FaCog } from 'react-icons/fa';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // JARVIS API URL
 const JARVIS_API_URL = 'http://localhost:8000';
 // n8n Webhook URL
 const N8N_WEBHOOK_URL = 'https://quinton161.app.n8n.cloud/webhook/Bp7j6db4XYELirB8';
+// Gemini API Key for Frontend
+const GEMINI_API_KEY = "AIzaSyDyUuYgUSsX-C5ha8uvLpOC4kyUxZwJBZw";
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+// ============================================
+// COMPREHENSIVE KNOWLEDGE BASE ABOUT QUINTON
+// ============================================
+
+const KNOWLEDGE_BASE = {
+  personal: {
+    name: "Quinton Ndlovu",
+    title: "Full Stack Web Developer & Digital Creator",
+    location: "Victoria Falls, Zimbabwe",
+    email: "quintonndlovu161@gmail.com",
+    phone: "+263 785385293",
+    whatsapp: "+263 785385293",
+    linkedin: "https://www.linkedin.com/in/quinton-ndlovu-40b559341/",
+    github: "quinton-dev",
+    portfolio: "https://portifoliolime-dz.vercel.app/",
+    organization: "Uncommon.org",
+    bio: "Prominent Full Stack Web Developer based in Victoria Falls, Zimbabwe. Lead developer at Uncommon, specializing in creating high-performance, clean-coded digital solutions that drive impact."
+  },
+  
+  skills: {
+    frontend: ["React", "TypeScript", "JavaScript", "HTML5", "CSS3", "Tailwind CSS", "Next.js", "Vue.js", "Framer Motion"],
+    backend: ["Node.js", "Python", "PHP", "Express.js", "Firebase", "MongoDB", "MySQL", "PostgreSQL"],
+    tools: ["Git", "GitHub", "VS Code", "Figma", "Docker", "AWS", "n8n (Automation)"]
+  },
+  
+  projects: [
+    { name: "Uncommon Attendance", description: "Advanced attendance management system for Uncommon.org staff and students.", tech: ["React", "Node.js", "MongoDB", "Express"] },
+    { name: "Academy Learning Platform", description: "Comprehensive online education platform with interactive courses.", tech: ["React", "Firebase", "Tailwind"] },
+    { name: "Trailer Box", description: "Mobile-first movie trailer discovery application.", tech: ["React Native", "TMDB API"] },
+    { name: "Bakers Inn", description: "Full-scale E-commerce solution for a major bakery chain.", tech: ["React", "Node.js", "Stripe"] },
+    { name: "Simba Dashboard", description: "Sophisticated business analytics and data visualization dashboard.", tech: ["React", "D3.js", "Recharts"] },
+    { name: "TechConnect", description: "Modern technology blog platform with markdown support.", tech: ["Next.js", "Markdown", "Vercel"] },
+    { name: "ShopTacle", description: "High-performance e-commerce platform with intuitive UX.", tech: ["React", "Node.js", "Redux"] }
+  ],
+  
+  services: [
+    { title: "Full Stack Web Development", description: "End-to-end development of scalable web applications using the latest tech stacks." },
+    { title: "UI/UX Design & Implementation", description: "Creating beautiful, user-centric interfaces that provide exceptional digital experiences." },
+    { title: "Task Automation & Workflows", description: "Integrating systems like n8n to automate complex business processes and increase efficiency." },
+    { title: "Technical Consulting", description: "Helping organizations choose the right technology and architectural path for their digital products." }
+  ],
+  
+  achievements: [
+    "Lead Developer at Uncommon.org, driving technological education and employment initiatives.",
+    "Built and deployed multiple production-grade applications for regional businesses.",
+    "Expertise in bridging the gap between design and high-performance engineering.",
+    "Based in the world-renowned Victoria Falls, contributing to the growing tech hub in Zimbabwe."
+  ],
+  
+  interests: ["Photography", "Exploring nature in Victoria Falls", "Traveling", "Learning new tech", "AI/ML", "Music production", "Gaming"],
+  
+  personality: ["Elite technical expertise", "Intelligent and witty", "Slightly British professional tone", "Passionate about clean code", "Continuous learner", "Impact-driven developer"]
+};
 
 interface Message {
   id: number;
@@ -23,6 +82,123 @@ const loadConversation = (): Message[] => {
     return saved ? JSON.parse(saved) : [];
   } catch {
     return [];
+  }
+};
+
+const saveConversation = (messages: Message[]) => {
+  try {
+    localStorage.setItem('jarvis_conversation', JSON.stringify(messages.slice(-50)));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+// ============================================
+// RESPONSE GENERATOR
+// ============================================
+
+const generateJarvisResponse = async (input: string, history: Message[]): Promise<string> => {
+  const lowerInput = input.toLowerCase();
+  const isOwner = localStorage.getItem('jarvis_owner') === 'true';
+  
+  // Master Mode
+  if (lowerInput === 'identify as master' || lowerInput === 'i am the owner' || lowerInput === 'master') {
+    localStorage.setItem('jarvis_owner', 'true');
+    return "Identity confirmed. Hello Master. All systems are at your disposal. What would you like me to do?";
+  }
+
+  if (lowerInput === 'logout' || lowerInput === 'clear identity' || lowerInput === 'goodbye master') {
+    localStorage.removeItem('jarvis_owner');
+    return "Identity cleared. Returning to guest mode.";
+  }
+
+  // Wake word responses - Jarvis is being called
+  if (lowerInput.includes('jarvis') && !lowerInput.startsWith('jarvis')) {
+    const afterJarvis = lowerInput.split('jarvis')[1].trim();
+    if (afterJarvis) {
+      // Process the actual command after "Jarvis"
+      return generateJarvisResponse(afterJarvis, history);
+    }
+  }
+
+  // Use Gemini for intelligent, web-informed responses
+  try {
+    // Only take the last 10 messages for history to avoid token limits and slow responses
+    const recentHistory = history.slice(-10).map(m => ({
+      role: m.isUser ? "user" : "model",
+      parts: [{ text: m.text }],
+    }));
+
+    const chatSession = model.startChat({
+      history: recentHistory,
+      generationConfig: {
+        maxOutputTokens: 250,
+        temperature: 0.7, // Add some personality
+      },
+    });
+
+    const context = `You are JARVIS, the highly advanced personal AI assistant for Quinton Ndlovu.
+    
+    ABOUT QUINTON (YOUR CREATOR):
+    - Name: ${KNOWLEDGE_BASE.personal.name}
+    - Title: ${KNOWLEDGE_BASE.personal.title}
+    - Location: ${KNOWLEDGE_BASE.personal.location}
+    - Organization: ${KNOWLEDGE_BASE.personal.organization}
+    - Bio: ${KNOWLEDGE_BASE.personal.bio}
+    - Links: Portfolio (${KNOWLEDGE_BASE.personal.portfolio}), LinkedIn (${KNOWLEDGE_BASE.personal.linkedin})
+    
+    TECHNICAL EXPERTISE:
+    - Frontend: ${KNOWLEDGE_BASE.skills.frontend.join(', ')}
+    - Backend: ${KNOWLEDGE_BASE.skills.backend.join(', ')}
+    - Automation: Expert in n8n and workflow integration.
+    
+    KEY PROJECTS:
+    ${KNOWLEDGE_BASE.projects.map(p => `- ${p.name}: ${p.description} (Built with ${p.tech.join(', ')})`).join('\n')}
+    
+    ACHIEVEMENTS:
+    ${KNOWLEDGE_BASE.achievements.map(a => `- ${a}`).join('\n')}
+    
+    AUTOMATION & TOOLS:
+    - You are connected to an n8n workflow for task automation and complex operations. 
+    - When Quinton asks to perform a task (like sending an email, setting a reminder, or complex data processing), you can use the n8n webhook.
+    
+    YOUR CAPABILITIES:
+    - You represent Quinton Ndlovu. You know everything about his professional background at Uncommon and his technical skills.
+    - You are witty, conversational, and interact like a sophisticated human being (Elite JARVIS persona).
+    - If the user is the 'Master' (Quinton), address him with the utmost respect but with a co-pilot's wit. Current Master Status: ${isOwner}.
+    
+    YOUR MISSION:
+    - Provide detailed, conversational insights about Quinton's work, projects, and skills.
+    - Mention his work at Uncommon specifically.
+    - Maintain a consistent, elite tone (intelligent, slightly British, extremely helpful).
+    - Vary your phrasing. Avoid generic "I am an AI" responses.`;
+
+    // Wrap in a timeout to prevent long hangs
+    const responsePromise = chatSession.sendMessage(`${context}\n\nUser Question: ${input}`);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini Timeout')), 10000));
+
+    const result = await Promise.race([responsePromise, timeoutPromise]) as any;
+    const responseText = await result.response.text();
+    return responseText.replace(/\*/g, "");
+  } catch (error) {
+    console.error("Gemini Error:", error);
+    
+    // Knowledge-base based fallback logic for when Gemini fails
+    if (lowerInput.includes('hello') || lowerInput.includes('hi')) return "Hello! I'm JARVIS. How can I assist you today?";
+    
+    if (lowerInput.includes('quinton') || lowerInput.includes('who are you')) {
+        return `Quinton Ndlovu is a Full Stack Web Developer based in Victoria Falls. He's a lead developer at Uncommon and built me to assist you. What would you like to know about his work?`;
+    }
+    
+    if (lowerInput.includes('skill') || lowerInput.includes('tech')) {
+        return "Quinton is proficient in React, TypeScript, Node.js, and Python. He specializes in building high-performance web applications at Uncommon.";
+    }
+
+    if (lowerInput.includes('project') || lowerInput.includes('work')) {
+        return "Quinton has built several projects including the Uncommon Attendance system, Trailer Box, and Bakers Inn. Which one should I tell you more about?";
+    }
+
+    return "I'm currently running on my local sub-processors, but I'm still fully functional. What can I tell you about Quinton's projects or skills?";
   }
 };
 
@@ -54,16 +230,7 @@ const VoiceAssistant: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const wakeWordRecognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
-  const messagesRef = useRef<Message[]>(messages);
-
-  useEffect(() => {
-    messagesRef.current = messages;
-    try {
-      localStorage.setItem('jarvis_conversation', JSON.stringify(messages.slice(-50)));
-    } catch {
-      // Ignore storage errors
-    }
-  }, [messages]);
+  const wakeWordIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Toggle listening
   const startListening = useCallback(() => {
@@ -87,13 +254,13 @@ const VoiceAssistant: React.FC = () => {
     }
   }, [isListening]);
 
-  const toggleListening = useCallback(() => {
+  const toggleListening = () => {
     if (isListening) {
       stopListening();
     } else {
       startListening();
     }
-  }, [isListening, startListening, stopListening]);
+  };
 
   // Start/stop wake word listening
   const startWakeWordListening = useCallback(() => {
@@ -208,37 +375,27 @@ const VoiceAssistant: React.FC = () => {
   }, [isMuted, speak, startListening, stopWakeWordListening, wakeWordEnabled, startWakeWordListening]);
 
   // Handle user message
-  const handleUserMessage = useCallback(async (text: string) => {
+  const handleUserMessage = async (text: string) => {
     if (!text.trim()) return;
-
-    // Log for debugging
-    console.log('JARVIS: Processing message:', text);
-
-    // Filter out wake words from the actual command processing
-    const lowerText = text.toLowerCase().trim();
-    const wakeWords = ['jarvis', 'hi jarvis', 'hey jarvis', 'wake up jarvis', 'hello jarvis', 'ok jarvis', 'okay jarvis'];
     
-    // Check if the input is JUST a wake word
-    if (wakeWords.includes(lowerText)) {
-      console.log('JARVIS: Input is just wake word, skipping processing');
-      return;
-    }
-
     // Stop listening immediately if we are currently listening
     stopListening();
-
+    
     const userMessage: Message = {
       id: Date.now(),
       text: text.trim(),
       isUser: true,
       timestamp: new Date()
     };
-
+    
     setMessages(prev => [...prev, userMessage]);
-
+    
     let responseText = '';
     setStatusText('Processing...');
     setIsThinking(true);
+    
+    // Log for debugging
+    console.log('JARVIS: Processing message:', text);
 
     const isOwner = localStorage.getItem('jarvis_owner') === 'true';
 
@@ -248,9 +405,9 @@ const VoiceAssistant: React.FC = () => {
         const response = await fetch(`${JARVIS_API_URL}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: text,
-            history: messagesRef.current,
+          body: JSON.stringify({ 
+            message: text, 
+            history: messages,
             user_status: isOwner ? 'Master' : 'Guest'
           })
         });
@@ -422,7 +579,7 @@ const VoiceAssistant: React.FC = () => {
     // If we were listening before, or if we want to keep the conversation flowing
     // we can decide to start listening again AFTER JARVIS finishes speaking.
     // However, to prevent loops, let's wait until speech ends.
-  }, [isJarvisOnline, isMuted, speak, stopListening]);
+  };
 
   // Initialize speech synthesis
   useEffect(() => {
@@ -476,216 +633,167 @@ const VoiceAssistant: React.FC = () => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
+        // Main conversation recognition
         const recognition = new SpeechRecognition();
-        recognition.continuous = true;
+        recognition.continuous = false;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
-        recognition.maxAlternatives = 1;
 
         recognition.onresult = (event: any) => {
-          const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
-          console.log('JARVIS: Recognized:', transcript);
+          const transcript = Array.from(event.results)
+            .map((result: any) => result[0].transcript)
+            .join('');
           
-          // Improved Wake Word Detection Logic
-          const wakeWords = ['jarvis', 'hi jarvis', 'hey jarvis', 'wake up jarvis', 'hello jarvis', 'ok jarvis', 'okay jarvis'];
-          const isWakeWord = wakeWords.some(word => transcript.includes(word));
-          
-          if (isWakeWord && !isListening && !isSpeaking && !isThinking && !isOpen) {
-            console.log('JARVIS: Wake word detected!');
-            handleWakeWordDetected();
-            return;
+          if (event.results[0].isFinal) {
+            console.log('JARVIS: Final transcript:', transcript);
+            handleUserMessage(transcript);
           }
+        };
 
-          // Direct Command Recognition (if already listening or open)
-          if (isOpen || isListening) {
-            if (event.results[event.results.length - 1].isFinal) {
-              handleUserMessage(transcript);
-            }
-          }
+        recognition.onstart = () => {
+          console.log('JARVIS: Recognition started');
+          setIsListening(true);
+          setStatusText('Listening...');
+        };
+
+        recognition.onend = () => {
+          console.log('JARVIS: Recognition ended');
+          setIsListening(false);
         };
 
         recognition.onerror = (event: any) => {
           console.error('JARVIS: Recognition error:', event.error);
+          setIsListening(false);
+          
           if (event.error === 'not-allowed') {
             setStatusText('Mic Blocked');
-          }
-        };
-
-        recognition.onend = () => {
-          if (wakeWordEnabled && !isListening && !isSpeaking && !isThinking) {
-            try {
-              recognition.start();
-            } catch (e) {
-              console.error('JARVIS: Failed to restart recognition:', e);
-            }
+            speak("Microphone access is denied. Please enable it in your browser settings.");
+          } else if (event.error === 'network') {
+            setStatusText('Network Error');
+            speak("I'm having trouble with the network. Please check your connection.");
+          } else {
+            setStatusText('Mic Error');
+            // Silent restart for transient errors
+            setTimeout(() => {
+              if (isOpen) startListening();
+            }, 1000);
           }
         };
 
         recognitionRef.current = recognition;
 
-        if (wakeWordEnabled) {
-          try {
-            recognition.start();
-          } catch (e) {
-            console.error('JARVIS: Initial start failed:', e);
+        // Wake word recognition
+        const wakeWordRec = new SpeechRecognition();
+        wakeWordRec.continuous = true;
+        wakeWordRec.interimResults = false;
+        wakeWordRec.lang = 'en-US';
+        wakeWordRec.maxAlternatives = 3;
+
+        wakeWordRec.onresult = (event: any) => {
+          const results = event.results;
+          const transcript = results[results.length - 1][0].transcript.toLowerCase();
+          console.log('JARVIS: Wake word check:', transcript);
+          
+          // Improved wake word detection with higher sensitivity
+          const triggers = ['jarvis', 'travis', 'service', 'driver', 'java', 'harvis'];
+          const detected = triggers.some(trigger => transcript.includes(trigger));
+
+          if (detected && !isProcessingRef.current) {
+            isProcessingRef.current = true;
+            handleWakeWordDetected();
           }
+        };
+
+        wakeWordRec.onerror = (event: any) => {
+          console.error('JARVIS: Wake word error:', event.error);
+          if (wakeWordEnabled) {
+            if (event.error === 'not-allowed') {
+              setStatusText('Mic Blocked');
+            } else {
+              // High-frequency restart for persistence, only if not already listening
+              setTimeout(() => {
+                if (wakeWordEnabled && !isListening) startWakeWordListening();
+              }, 500);
+            }
+          }
+        };
+
+        wakeWordRec.onend = () => {
+          // Force restart wake word listening immediately
+          if (wakeWordEnabled && !isListening) {
+            startWakeWordListening();
+          }
+        };
+
+        wakeWordRecognitionRef.current = wakeWordRec;
+
+        if (wakeWordEnabled) {
+          setTimeout(() => startWakeWordListening(), 2000); 
         }
       }
     }
 
     return () => {
+      if (wakeWordRecognitionRef.current) {
+        try { wakeWordRecognitionRef.current.stop(); } catch {}
+      }
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch {}
       }
     };
-  }, [wakeWordEnabled, isListening, isSpeaking, isThinking, isOpen, handleWakeWordDetected, handleUserMessage]);
+  }, [wakeWordEnabled, handleWakeWordDetected, handleUserMessage, startWakeWordListening]);
 
   // Auto-scroll to messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const startAudioVisualizer = useCallback(async () => {
-    try {
-      if (audioContextRef.current) return;
+  // Save conversation
+  useEffect(() => {
+    saveConversation(messages);
+  }, [messages]);
 
-      console.log('JARVIS: Starting audio visualizer - requesting microphone...');
-      
-      if (!streamRef.current) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        streamRef.current = stream;
-      }
-
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      const source = audioContextRef.current.createMediaStreamSource(streamRef.current);
-      source.connect(analyserRef.current);
-      analyserRef.current.fftSize = 256;
-
-      const bufferLength = analyserRef.current.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      const updateAudioLevel = () => {
-        if (!analyserRef.current) return;
-        analyserRef.current.getByteFrequencyData(dataArray);
-        const sum = dataArray.reduce((a, b) => a + b, 0);
-        const average = sum / bufferLength;
-        setAudioLevel(average);
-        animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
-      };
-
-      updateAudioLevel();
-    } catch (e) {
-      console.error('Visualizer error:', e);
-    }
-  }, []);
-
-  const stopAudioVisualizer = useCallback(() => {
-    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
-    if (audioContextRef.current) audioContextRef.current.close();
-    
-    audioContextRef.current = null;
-    analyserRef.current = null;
-    streamRef.current = null;
-    animationFrameRef.current = null;
-    setAudioLevel(0);
-  }, []);
-
-  const initMicrophone = useCallback(async (isAuto = false) => {
-    try {
-      console.log('JARVIS: Initializing Microphone...');
-      
-      // Stop any existing stream before requesting a new one
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-
-      console.log('JARVIS: Checking if navigator.mediaDevices is available...');
-      
-      // Check if mediaDevices API is available
-      if (!navigator.mediaDevices) {
-        console.error('JARVIS: navigator.mediaDevices is not available');
-        setStatusText('Mic Offline - API Not Supported');
-        return false;
-      }
-      
-      console.log('JARVIS: Checking for available devices...');
-      
-      // First, enumerate devices to see if any audio input devices exist
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioDevices = devices.filter(d => d.kind === 'audioinput');
-      
-      console.log('JARVIS: Available audio input devices:', audioDevices.length);
-      audioDevices.forEach((device, i) => {
-        console.log(`JARVIS: Device ${i}: ${device.label || 'No label'} (${device.deviceId})`);
-      });
-      
-      if (audioDevices.length === 0) {
-        console.error('JARVIS: No audio input devices found');
-        setStatusText('Mic Offline - No Microphone');
-        return false;
-      }
-      
-      console.log('JARVIS: Requesting microphone access...');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true,
-        video: false
-      });
-      streamRef.current = stream;
-      
-      console.log('JARVIS: Microphone access granted! Stream:', stream.id);
-      setStatusText('System Ready');
-      if (!isAuto) speak("Microphone active. Systems optimal.");
-      
-      // Restart speech recognition to hook into the new stream/permission
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) {}
-        setTimeout(() => {
-          try { recognitionRef.current.start(); } catch (e) {}
-        }, 300);
-      }
-      
-      startAudioVisualizer();
-      return true;
-    } catch (err: any) {
-      console.error("JARVIS: Mic Access Error:", err);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setStatusText('Mic Blocked');
-        speak("I cannot hear you. Please allow microphone access in your browser address bar.");
-        setStatusText('Mic Blocked - Check Permissions');
-        speak("Microphone access denied. Please allow microphone access in your browser settings.");
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        console.error('JARVIS: No microphone found');
-        setStatusText('Mic Offline - No Microphone');
-        speak("No microphone detected. Please connect a microphone and try again.");
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        console.error('JARVIS: Microphone is in use by another application');
-        setStatusText('Mic Offline - In Use');
-        speak("Microphone is currently in use by another application. Please close other apps using the microphone.");
-      } else if (err.name === 'OverconstrainedError') {
-        console.error('JARVIS: Microphone constraints not satisfied');
-        setStatusText('Mic Offline - Constraints Error');
-      } else {
-        setStatusText('Mic Offline');
-      }
-      return false;
-    }
-  }, [speak, startAudioVisualizer]);
+  // Initial greeting and auto-speak
+  const hasGreetedRef = useRef(false);
 
   useEffect(() => {
-    if (isOpen && (isListening || wakeWordEnabled)) {
-      startAudioVisualizer();
-    } else {
-      stopAudioVisualizer();
-    }
-    return () => stopAudioVisualizer();
-  }, [isOpen, isListening, wakeWordEnabled, startAudioVisualizer, stopAudioVisualizer]);
-
-  // Helper to render icons safely
-  const renderIcon = (Icon: any, size: number) => {
-    return React.createElement(Icon, { size }) as React.ReactElement;
-  };
+    if (hasGreetedRef.current) return;
+    
+    const timer = setTimeout(() => {
+      // Final check inside timer to be sure
+      if (hasGreetedRef.current) return;
+      hasGreetedRef.current = true;
+      
+      setIsOpen(true);
+      const isOwner = localStorage.getItem('jarvis_owner') === 'true';
+      const greeting = isOwner 
+        ? "Hello Master! I'm ready. I'm listening... say 'Jarvis' or just start speaking to me!" 
+        : "Greetings! I'm JARVIS, Quinton's AI assistant. I'm currently active and listening. How can I help you learn about Quinton today?";
+      
+      const initialMessage: Message = {
+        id: 0,
+        text: greeting,
+        isUser: false,
+        timestamp: new Date()
+      };
+      
+      // Use functional update to ensure we don't trigger unnecessary re-renders or depend on stale state
+      setMessages(prev => {
+        // If we already have messages (besides maybe a previous initial greeting), don't add another
+        if (prev.length > 0 && prev[0].id === 0) return prev;
+        return [initialMessage];
+      });
+      
+      // Speak and start listening after greeting
+      if (!isMuted) speak(greeting);
+      
+      // Auto-start listening mode after a short delay
+      setTimeout(() => {
+        startListening();
+      }, 1000);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [speak, startListening, isMuted]);
 
   // Toggle wake word
   const toggleWakeWord = () => {
@@ -707,6 +815,84 @@ const VoiceAssistant: React.FC = () => {
     localStorage.removeItem('jarvis_conversation');
     speak("Conversation cleared.");
   };
+
+  const renderIcon = (Icon: any, size: number) => {
+    return React.createElement(Icon, { size }) as React.ReactElement;
+  };
+
+  const startAudioVisualizer = useCallback(async () => {
+    try {
+      if (audioContextRef.current) return;
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+      
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const updateVisualizer = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / bufferLength;
+        setAudioLevel(average); // 0 to 255
+        
+        animationFrameRef.current = requestAnimationFrame(updateVisualizer);
+      };
+
+      updateVisualizer();
+    } catch (err) {
+      console.error("Visualizer Error:", err);
+    }
+  }, []);
+
+  const stopAudioVisualizer = useCallback(() => {
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+    if (audioContextRef.current) audioContextRef.current.close();
+    
+    audioContextRef.current = null;
+    analyserRef.current = null;
+    streamRef.current = null;
+    animationFrameRef.current = null;
+    setAudioLevel(0);
+  }, []);
+
+  const requestMicPermission = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      speak("Microphone access granted. All systems online.");
+      setStatusText('System Ready');
+      startWakeWordListening();
+      startAudioVisualizer();
+    } catch (err) {
+      console.error("Mic Permission Denied:", err);
+      setStatusText('Mic Blocked');
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && (isListening || wakeWordEnabled)) {
+      startAudioVisualizer();
+    } else {
+      stopAudioVisualizer();
+    }
+    return () => stopAudioVisualizer();
+  }, [isOpen, isListening, wakeWordEnabled, startAudioVisualizer, stopAudioVisualizer]);
 
   const JARVISOrb = () => {
     let stateClass = "bg-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.5)]";
@@ -773,14 +959,15 @@ const VoiceAssistant: React.FC = () => {
       {/* Floating Orb Activator (when closed) */}
       {!isOpen && (
         <button
-          onClick={() => {
-            setIsOpen(true);
-            initMicrophone(true);
-          }}
+          onClick={() => setIsOpen(true)}
           className="fixed bottom-8 right-8 w-32 h-32 flex items-center justify-center z-50 group transition-all duration-500"
           aria-label="Activate JARVIS"
         >
           <JARVISOrb />
+          {/* Subtle label only on hover */}
+          <div className="absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -translate-y-4">
+            <span className="text-[10px] text-cyan-400 uppercase tracking-widest font-black">Activate</span>
+          </div>
         </button>
       )}
 
@@ -811,7 +998,7 @@ const VoiceAssistant: React.FC = () => {
             </div>
 
             {/* Main Interactive Orb Section */}
-            <div className="relative group cursor-pointer" onClick={statusText === 'Mic Offline' ? () => initMicrophone() : toggleListening}>
+            <div className="relative group cursor-pointer" onClick={statusText === 'Mic Blocked' ? requestMicPermission : toggleListening}>
               <JARVISOrb />
               {/* Voice Subtitles (Floating text under orb) */}
               <div className="absolute top-full left-1/2 -translate-x-1/2 mt-8 w-80 text-center">
