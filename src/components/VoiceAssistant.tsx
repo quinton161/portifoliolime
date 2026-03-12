@@ -1,15 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FaMicrophone, FaMicrophoneSlash, FaTimes, FaRobot, FaVolumeMute, FaVolumeUp, FaBrain, FaCog } from 'react-icons/fa';
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // JARVIS API URL
 const JARVIS_API_URL = 'http://localhost:8000';
 // n8n Webhook URL
 const N8N_WEBHOOK_URL = 'https://quinton161.app.n8n.cloud/webhook/Bp7j6db4XYELirB8';
-// Gemini API Key for Frontend
-const GEMINI_API_KEY = "AIzaSyDyUuYgUSsX-C5ha8uvLpOC4kyUxZwJBZw";
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // ============================================
 // COMPREHENSIVE KNOWLEDGE BASE ABOUT QUINTON
@@ -94,12 +89,11 @@ const saveConversation = (messages: Message[]) => {
 };
 
 // ============================================
-// RESPONSE GENERATOR
+// RESPONSE GENERATOR (PURE LOCAL SYNC)
 // ============================================
 
 const generateJarvisResponse = async (input: string, history: Message[]): Promise<string> => {
   const lowerInput = input.toLowerCase();
-  const isOwner = localStorage.getItem('jarvis_owner') === 'true';
   
   // Master Mode
   if (lowerInput === 'identify as master' || lowerInput === 'i am the owner' || lowerInput === 'master') {
@@ -112,94 +106,39 @@ const generateJarvisResponse = async (input: string, history: Message[]): Promis
     return "Identity cleared. Returning to guest mode.";
   }
 
-  // Wake word responses - Jarvis is being called
-  if (lowerInput.includes('jarvis') && !lowerInput.startsWith('jarvis')) {
-    const afterJarvis = lowerInput.split('jarvis')[1].trim();
-    if (afterJarvis) {
-      // Process the actual command after "Jarvis"
-      return generateJarvisResponse(afterJarvis, history);
-    }
+  // Knowledge-base search logic
+  if (lowerInput.includes('hello') || lowerInput.includes('hi')) return "Hello! I am JARVIS. I have Quinton's full data synchronized. How can I assist you?";
+  
+  if (lowerInput.includes('quinton') || lowerInput.includes('who are you') || lowerInput.includes('who is he')) {
+    return `${KNOWLEDGE_BASE.personal.name} is a ${KNOWLEDGE_BASE.personal.title} based in ${KNOWLEDGE_BASE.personal.location}. ${KNOWLEDGE_BASE.personal.bio}`;
+  }
+  
+  if (lowerInput.includes('skill') || lowerInput.includes('tech') || lowerInput.includes('stack')) {
+    return `Quinton is an expert in Frontend (${KNOWLEDGE_BASE.skills.frontend.join(', ')}), Backend (${KNOWLEDGE_BASE.skills.backend.join(', ')}), and Automation tools like ${KNOWLEDGE_BASE.skills.tools.join(', ')}.`;
   }
 
-  // Use Gemini for intelligent, web-informed responses
-  try {
-    // Only take the last 10 messages for history to avoid token limits and slow responses
-    const recentHistory = history.slice(-10).map(m => ({
-      role: m.isUser ? "user" : "model",
-      parts: [{ text: m.text }],
-    }));
-
-    const chatSession = model.startChat({
-      history: recentHistory,
-      generationConfig: {
-        maxOutputTokens: 250,
-        temperature: 0.7, // Add some personality
-      },
-    });
-
-    const context = `You are JARVIS, the highly advanced personal AI assistant for Quinton Ndlovu.
-    
-    ABOUT QUINTON (YOUR CREATOR):
-    - Name: ${KNOWLEDGE_BASE.personal.name}
-    - Title: ${KNOWLEDGE_BASE.personal.title}
-    - Location: ${KNOWLEDGE_BASE.personal.location}
-    - Organization: ${KNOWLEDGE_BASE.personal.organization}
-    - Bio: ${KNOWLEDGE_BASE.personal.bio}
-    - Links: Portfolio (${KNOWLEDGE_BASE.personal.portfolio}), LinkedIn (${KNOWLEDGE_BASE.personal.linkedin})
-    
-    TECHNICAL EXPERTISE:
-    - Frontend: ${KNOWLEDGE_BASE.skills.frontend.join(', ')}
-    - Backend: ${KNOWLEDGE_BASE.skills.backend.join(', ')}
-    - Automation: Expert in n8n and workflow integration.
-    
-    KEY PROJECTS:
-    ${KNOWLEDGE_BASE.projects.map(p => `- ${p.name}: ${p.description} (Built with ${p.tech.join(', ')})`).join('\n')}
-    
-    ACHIEVEMENTS:
-    ${KNOWLEDGE_BASE.achievements.map(a => `- ${a}`).join('\n')}
-    
-    AUTOMATION & TOOLS:
-    - You are connected to an n8n workflow for task automation and complex operations. 
-    - When Quinton asks to perform a task (like sending an email, setting a reminder, or complex data processing), you can use the n8n webhook.
-    
-    YOUR CAPABILITIES:
-    - You represent Quinton Ndlovu. You know everything about his professional background at Uncommon and his technical skills.
-    - You are witty, conversational, and interact like a sophisticated human being (Elite JARVIS persona).
-    - If the user is the 'Master' (Quinton), address him with the utmost respect but with a co-pilot's wit. Current Master Status: ${isOwner}.
-    
-    YOUR MISSION:
-    - Provide detailed, conversational insights about Quinton's work, projects, and skills.
-    - Mention his work at Uncommon specifically.
-    - Maintain a consistent, elite tone (intelligent, slightly British, extremely helpful).
-    - Vary your phrasing. Avoid generic "I am an AI" responses.`;
-
-    // Wrap in a timeout to prevent long hangs
-    const responsePromise = chatSession.sendMessage(`${context}\n\nUser Question: ${input}`);
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini Timeout')), 10000));
-
-    const result = await Promise.race([responsePromise, timeoutPromise]) as any;
-    const responseText = await result.response.text();
-    return responseText.replace(/\*/g, "");
-  } catch (error) {
-    console.error("Gemini Error:", error);
-    
-    // Knowledge-base based fallback logic for when Gemini fails
-    if (lowerInput.includes('hello') || lowerInput.includes('hi')) return "Hello! I'm JARVIS. How can I assist you today?";
-    
-    if (lowerInput.includes('quinton') || lowerInput.includes('who are you')) {
-        return `Quinton Ndlovu is a Full Stack Web Developer based in Victoria Falls. He's a lead developer at Uncommon and built me to assist you. What would you like to know about his work?`;
-    }
-    
-    if (lowerInput.includes('skill') || lowerInput.includes('tech')) {
-        return "Quinton is proficient in React, TypeScript, Node.js, and Python. He specializes in building high-performance web applications at Uncommon.";
-    }
-
-    if (lowerInput.includes('project') || lowerInput.includes('work')) {
-        return "Quinton has built several projects including the Uncommon Attendance system, Trailer Box, and Bakers Inn. Which one should I tell you more about?";
-    }
-
-    return "I'm currently running on my local sub-processors, but I'm still fully functional. What can I tell you about Quinton's projects or skills?";
+  if (lowerInput.includes('project') || lowerInput.includes('work') || lowerInput.includes('portfolio')) {
+    const projectList = KNOWLEDGE_BASE.projects.map(p => p.name).join(', ');
+    return `Quinton's key projects include: ${projectList}. He specialized in creating high-performance digital solutions at Uncommon. Which one should I detail?`;
   }
+  
+  if (lowerInput.includes('uncommon')) {
+    return "Quinton is a lead developer at Uncommon.org, where he drives technological education and employment initiatives through advanced software solutions.";
+  }
+
+  if (lowerInput.includes('contact') || lowerInput.includes('email') || lowerInput.includes('reach')) {
+    return `You can reach Quinton via email at ${KNOWLEDGE_BASE.personal.email} or on LinkedIn at ${KNOWLEDGE_BASE.personal.linkedin}. He is based in Victoria Falls.`;
+  }
+
+  if (lowerInput.includes('achievement') || lowerInput.includes('accomplishment')) {
+    return `Some of Quinton's achievements: ${KNOWLEDGE_BASE.achievements.join(' ')}`;
+  }
+
+  if (lowerInput.includes('interest') || lowerInput.includes('hobby')) {
+    return `Outside of coding, Quinton enjoys: ${KNOWLEDGE_BASE.interests.join(', ')}.`;
+  }
+
+  return "I have all of Quinton's records synchronized. I can tell you about his projects, technical skills, his work at Uncommon, or his background in Victoria Falls. What details do you require?";
 };
 
 // ============================================
