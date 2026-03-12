@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FaMicrophone, FaMicrophoneSlash, FaTimes, FaRobot, FaVolumeMute, FaVolumeUp, FaBrain, FaCog } from 'react-icons/fa';
+import OpenAI from 'openai';
 
 // JARVIS API URL
 const JARVIS_API_URL = 'http://localhost:8000';
-// n8n Webhook URL
-const N8N_WEBHOOK_URL = 'https://quinton161.app.n8n.cloud/webhook/Bp7j6db4XYELirB8';
+
+// OpenAI Configuration
+const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY || "";
+const openai = new OpenAI({
+  apiKey: OPENAI_API_KEY,
+  dangerouslyAllowBrowser: true // Required for client-side integration
+});
 
 // ============================================
 // COMPREHENSIVE KNOWLEDGE BASE ABOUT QUINTON
@@ -89,7 +95,7 @@ const saveConversation = (messages: Message[]) => {
 };
 
 // ============================================
-// RESPONSE GENERATOR (PURE LOCAL SYNC)
+// RESPONSE GENERATOR (OPENAI + LOCAL SYNC)
 // ============================================
 
 const generateJarvisResponse = async (input: string, history: Message[]): Promise<string> => {
@@ -106,39 +112,62 @@ const generateJarvisResponse = async (input: string, history: Message[]): Promis
     return "Identity cleared. Returning to guest mode.";
   }
 
-  // Knowledge-base search logic
-  if (lowerInput.includes('hello') || lowerInput.includes('hi')) return "Hello! I am JARVIS. I have Quinton's full data synchronized. How can I assist you?";
-  
-  if (lowerInput.includes('quinton') || lowerInput.includes('who are you') || lowerInput.includes('who is he')) {
-    return `${KNOWLEDGE_BASE.personal.name} is a ${KNOWLEDGE_BASE.personal.title} based in ${KNOWLEDGE_BASE.personal.location}. ${KNOWLEDGE_BASE.personal.bio}`;
-  }
-  
-  if (lowerInput.includes('skill') || lowerInput.includes('tech') || lowerInput.includes('stack')) {
-    return `Quinton is an expert in Frontend (${KNOWLEDGE_BASE.skills.frontend.join(', ')}), Backend (${KNOWLEDGE_BASE.skills.backend.join(', ')}), and Automation tools like ${KNOWLEDGE_BASE.skills.tools.join(', ')}.`;
-  }
+  const isOwner = localStorage.getItem('jarvis_owner') === 'true';
 
-  if (lowerInput.includes('project') || lowerInput.includes('work') || lowerInput.includes('portfolio')) {
-    const projectList = KNOWLEDGE_BASE.projects.map(p => p.name).join(', ');
-    return `Quinton's key projects include: ${projectList}. He specialized in creating high-performance digital solutions at Uncommon. Which one should I detail?`;
-  }
-  
-  if (lowerInput.includes('uncommon')) {
-    return "Quinton is a lead developer at Uncommon.org, where he drives technological education and employment initiatives through advanced software solutions.";
-  }
+  try {
+    const systemPrompt = `You are JARVIS, a highly advanced, elite AI assistant for Quinton Ndlovu.
+    Your personality is sophisticated, intelligent, slightly British, and witty.
+    
+    CRITICAL KNOWLEDGE ABOUT QUINTON (YOUR CREATOR):
+    - Name: ${KNOWLEDGE_BASE.personal.name}
+    - Title: ${KNOWLEDGE_BASE.personal.title}
+    - Location: ${KNOWLEDGE_BASE.personal.location}
+    - Organization: ${KNOWLEDGE_BASE.personal.organization}
+    - Bio: ${KNOWLEDGE_BASE.personal.bio}
+    - Projects: ${KNOWLEDGE_BASE.projects.map(p => `${p.name}: ${p.description}`).join('; ')}
+    - Skills: ${KNOWLEDGE_BASE.skills.frontend.join(', ')}, ${KNOWLEDGE_BASE.skills.backend.join(', ')}
+    - Achievements: ${KNOWLEDGE_BASE.achievements.join(' ')}
+    
+    GUIDELINES:
+    1. Always prioritize the data above when answering questions about Quinton.
+    2. If asked about things not in the data, maintain the JARVIS persona but focus on Quinton's professional context.
+    3. User is ${isOwner ? 'Master (Quinton)' : 'a Guest'}. Treat the Master with elite respect and wit.
+    4. Keep responses concise, conversational, and highly intelligent.
+    5. Avoid generic AI phrases. Be JARVIS.`;
 
-  if (lowerInput.includes('contact') || lowerInput.includes('email') || lowerInput.includes('reach')) {
-    return `You can reach Quinton via email at ${KNOWLEDGE_BASE.personal.email} or on LinkedIn at ${KNOWLEDGE_BASE.personal.linkedin}. He is based in Victoria Falls.`;
-  }
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...history.slice(-5).map(m => ({
+        role: m.isUser ? "user" : "assistant",
+        content: m.text
+      })),
+      { role: "user", content: input }
+    ];
 
-  if (lowerInput.includes('achievement') || lowerInput.includes('accomplishment')) {
-    return `Some of Quinton's achievements: ${KNOWLEDGE_BASE.achievements.join(' ')}`;
-  }
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo", // Or "gpt-4o" if available on the key
+      messages: messages as any,
+      max_tokens: 250,
+      temperature: 0.7
+    });
 
-  if (lowerInput.includes('interest') || lowerInput.includes('hobby')) {
-    return `Outside of coding, Quinton enjoys: ${KNOWLEDGE_BASE.interests.join(', ')}.`;
-  }
+    return response.choices[0].message.content || "I apologize, Sir. My cognitive processors encountered a momentary synchronization error.";
+  } catch (error) {
+    console.error("OpenAI Error:", error);
+    
+    // Knowledge-base based fallback logic for when OpenAI fails
+    if (lowerInput.includes('hello') || lowerInput.includes('hi')) return "Hello! I am JARVIS. I have Quinton's full data synchronized. How can I assist you?";
+    
+    if (lowerInput.includes('quinton') || lowerInput.includes('who are you') || lowerInput.includes('who is he')) {
+      return `${KNOWLEDGE_BASE.personal.name} is a ${KNOWLEDGE_BASE.personal.title} based in ${KNOWLEDGE_BASE.personal.location}. ${KNOWLEDGE_BASE.personal.bio}`;
+    }
+    
+    if (lowerInput.includes('skill') || lowerInput.includes('tech') || lowerInput.includes('stack')) {
+      return `Quinton is an expert in Frontend (${KNOWLEDGE_BASE.skills.frontend.join(', ')}), Backend (${KNOWLEDGE_BASE.skills.backend.join(', ')}), and Automation tools.`;
+    }
 
-  return "I have all of Quinton's records synchronized. I can tell you about his projects, technical skills, his work at Uncommon, or his background in Victoria Falls. What details do you require?";
+    return "I have all of Quinton's records synchronized locally. What details do you require regarding his projects or expertise?";
+  }
 };
 
 // ============================================
@@ -464,40 +493,31 @@ const VoiceAssistant: React.FC = () => {
       }
     }
 
-    // 3. Local Automation Fallback (n8n)
+    // 3. Pure Local Knowledge Base (Synchronized Data)
     if (!responseText) {
-      const lowerText = text.toLowerCase();
-      const automationKeywords = ['send', 'schedule', 'remind', 'create', 'automation', 'workflow', 'task'];
-      const isAutomationTask = automationKeywords.some(keyword => lowerText.includes(keyword));
-
-      if (isAutomationTask) {
-        try {
-          setStatusText('Running Automation...');
-          const n8nResponse = await fetch(N8N_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              message: text, 
-              user: isOwner ? 'Master' : 'Guest',
-              timestamp: new Date().toISOString()
-            })
-          });
-          
-          if (n8nResponse.ok) {
-            const n8nData = await n8nResponse.json();
-            if (n8nData && n8nData.message) {
-              responseText = n8nData.message;
-            }
-          }
-        } catch (error) {
-          console.error('JARVIS: n8n Automation Error:', error);
-        }
+      const lowerText = text.toLowerCase().trim();
+      
+      // Knowledge-base search logic
+      if (lowerText.includes('hello') || lowerText.includes('hi')) {
+        responseText = "Hello! I am JARVIS. I have Quinton's full data synchronized. How can I assist you?";
+      } else if (lowerText.includes('quinton') || lowerText.includes('who are you') || lowerText.includes('who is he')) {
+        responseText = `${KNOWLEDGE_BASE.personal.name} is a ${KNOWLEDGE_BASE.personal.title} based in ${KNOWLEDGE_BASE.personal.location}. ${KNOWLEDGE_BASE.personal.bio}`;
+      } else if (lowerText.includes('skill') || lowerText.includes('tech') || lowerText.includes('stack')) {
+        responseText = `Quinton is an expert in Frontend (${KNOWLEDGE_BASE.skills.frontend.join(', ')}), Backend (${KNOWLEDGE_BASE.skills.backend.join(', ')}), and Automation tools like ${KNOWLEDGE_BASE.skills.tools.join(', ')}.`;
+      } else if (lowerText.includes('project') || lowerText.includes('work') || lowerText.includes('portfolio')) {
+        const projectList = KNOWLEDGE_BASE.projects.map(p => p.name).join(', ');
+        responseText = `Quinton's key projects include: ${projectList}. He specialized in creating high-performance digital solutions at Uncommon. Which one should I detail?`;
+      } else if (lowerText.includes('uncommon')) {
+        responseText = "Quinton is a lead developer at Uncommon.org, where he drives technological education and employment initiatives through advanced software solutions.";
+      } else if (lowerText.includes('contact') || lowerText.includes('email') || lowerText.includes('reach')) {
+        responseText = `You can reach Quinton via email at ${KNOWLEDGE_BASE.personal.email} or on LinkedIn at ${KNOWLEDGE_BASE.personal.linkedin}. He is based in Victoria Falls.`;
+      } else if (lowerText.includes('achievement') || lowerText.includes('accomplishment')) {
+        responseText = `Some of Quinton's achievements: ${KNOWLEDGE_BASE.achievements.join(' ')}`;
+      } else if (lowerText.includes('interest') || lowerText.includes('hobby')) {
+        responseText = `Outside of coding, Quinton enjoys: ${KNOWLEDGE_BASE.interests.join(', ')}.`;
+      } else {
+        responseText = "I have all of Quinton's records synchronized. I can tell you about his projects, technical skills, his work at Uncommon, or his background in Victoria Falls. What details do you require?";
       }
-    }
-
-    // 4. Local Gemini Fallback (if backend failed or returned empty)
-    if (!responseText) {
-      responseText = "I'm currently operating in offline mode, but I have all of Quinton's records synchronized. How can I help you today?";
     }
 
     const botMessage: Message = {
