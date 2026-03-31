@@ -468,31 +468,6 @@ ${dossier}`;
   }
 };
 
-function jarvisOfflineKeywordFallback(lowerInput: string): string {
-  if (lowerInput.includes('hello') || lowerInput.includes('hi')) {
-    return `Hi — I’m Quinton, the assistant on this site. Want to know about my creator, Quinton Ndlovu? I can walk you through his projects, skills, and how to reach him — what would you like?`;
-  }
-  if (lowerInput.includes('quinton') || lowerInput.includes('who are you') || lowerInput.includes('who is he')) {
-    return `${KNOWLEDGE_BASE.personal.name} is a ${KNOWLEDGE_BASE.personal.title} in ${KNOWLEDGE_BASE.personal.location}. ${KNOWLEDGE_BASE.personal.bio} ${KNOWLEDGE_BASE.personal.tagline}`;
-  }
-  if (
-    lowerInput.includes('contact') ||
-    lowerInput.includes('email') ||
-    lowerInput.includes('reach') ||
-    lowerInput.includes('whatsapp') ||
-    lowerInput.includes('phone') ||
-    lowerInput.includes('message him')
-  ) {
-    const p = KNOWLEDGE_BASE.personal;
-    return `You can reach Quinton by email at ${p.email}, phone ${p.phone}, or WhatsApp the same number — ${p.whatsappChatUrl}`;
-  }
-  if (lowerInput.includes('skill') || lowerInput.includes('tech') || lowerInput.includes('stack')) {
-    return `Quinton ships with ${KNOWLEDGE_BASE.skills.frontend.slice(0, 4).join(', ')}, and more — plus backend like ${KNOWLEDGE_BASE.skills.backend.slice(0, 4).join(', ')}. Want the full list or project examples?`;
-  }
-
-  return "I’m offline from the cloud model right now, but I still know Quinton’s story from local data — try “projects”, “contact”, or “skills”.";
-}
-
 // ============================================
 // MAIN COMPONENT
 // ============================================
