@@ -62,7 +62,7 @@ const App: React.FC = () => {
             </div>
           </div>
         </footer>
-        <VoiceAssistant />
+        <VoiceAssistant siteReady={!showSplash} />
       </div>
     </>
   );

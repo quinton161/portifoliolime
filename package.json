@@ -12,6 +12,7 @@
     "@types/styled-components": "^5.1.34",
     "framer-motion": "^12.26.2",
     "next": "^15.2.2",
+    "openai": "^6.27.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",
@@ -23,7 +24,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "backend:install": "pip install -r jarvis-backend/requirements.txt",
+    "backend": "cd jarvis-backend && uvicorn main:app --reload --host 127.0.0.1 --port 8000"
   },
   "eslintConfig": {
     "extends": [
