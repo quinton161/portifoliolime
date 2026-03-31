@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaLaptopCode, FaGlobe, FaChartLine } from 'react-icons/fa';
+import { FaLaptopCode, FaGlobe, FaHeadset } from 'react-icons/fa';
 
 const WhatIDo: React.FC = () => {
   const services = [
@@ -14,9 +14,10 @@ const WhatIDo: React.FC = () => {
       description: "Building scalable server-side applications, APIs, and database architectures with Node.js and cloud technologies."
     },
     {
-      icon: FaChartLine,
-      title: "Digital Strategy",
-      description: "Combining technical expertise with UI/UX principles and digital marketing to create impactful business solutions."
+      icon: FaHeadset,
+      title: "Software & IT Support",
+      description:
+        "Windows and software setup, troubleshooting, optimization, remote support, and ongoing maintenance alongside product development.",
     }
   ];
 
