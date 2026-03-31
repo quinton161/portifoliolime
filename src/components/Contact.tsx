@@ -40,15 +40,21 @@ async function sendContactMessage(data: { name: string; email: string; message: 
       throw new Error(
         typeof json.message === 'string' && json.message.length > 0
           ? json.message
-          : 'Could not send message. Check your Web3Forms access key and dashboard email.'
+          : 'Could not send your message. Please try again or use the email address on the left.'
       );
     }
     return;
   }
 
-  throw new Error(
-    'In-app email is not set up yet. Add REACT_APP_WEB3FORMS_ACCESS_KEY to your .env file (free key at web3forms.com — use the same email you want to receive messages), restart npm start, and add the same variable in Vercel → Settings → Environment Variables for the live site. Or email me directly using the address on the left.'
-  );
+  // No key in this build (add REACT_APP_WEB3FORMS_ACCESS_KEY locally + on Vercel for server-side delivery)
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(
+      '[Contact] REACT_APP_WEB3FORMS_ACCESS_KEY is empty — using mailto fallback. Set the env var and redeploy for Web3Forms.'
+    );
+  }
+  const subject = encodeURIComponent(`Portfolio contact from ${data.name}`);
+  const body = encodeURIComponent(`From: ${data.email}\n\n${data.message}`);
+  window.location.href = `mailto:${OWNER_EMAIL}?subject=${subject}&body=${body}`;
 }
 
 const Contact: React.FC = () => {
@@ -57,14 +63,17 @@ const Contact: React.FC = () => {
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorText, setErrorText] = useState('');
-  const web3Ready = !!getWeb3FormsAccessKey();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorText('');
     setStatus('loading');
     try {
-      await sendContactMessage({ name: name.trim(), email: email.trim(), message: message.trim() });
+      await sendContactMessage({
+        name: name.trim(),
+        email: email.trim(),
+        message: message.trim(),
+      });
       setStatus('success');
       setName('');
       setEmail('');
@@ -171,16 +180,6 @@ const Contact: React.FC = () => {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
-                {!web3Ready && (
-                  <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 sm:px-4 py-3 text-[11px] sm:text-xs leading-snug text-amber-950">
-                    Add <code className="rounded bg-white/80 px-1">REACT_APP_WEB3FORMS_ACCESS_KEY</code> to{' '}
-                    <code className="rounded bg-white/80 px-1">.env</code> (key from{' '}
-                    <a href="https://web3forms.com" className="font-semibold underline" target="_blank" rel="noreferrer">
-                      web3forms.com
-                    </a>
-                    ), restart the dev server, and set the same env on your host so messages reach your inbox.
-                  </p>
-                )}
                 {status === 'error' && (
                   <div
                     className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-3 sm:px-4 py-3 text-xs sm:text-sm text-red-900"
@@ -243,10 +242,10 @@ const Contact: React.FC = () => {
                 </div>
                 <button
                   type="submit"
-                  disabled={status === 'loading' || !web3Ready}
+                  disabled={status === 'loading'}
                   className="w-full py-4 sm:py-5 bg-black text-white rounded-2xl font-bold text-base sm:text-lg hover:bg-gray-800 transition-all transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:pointer-events-none touch-manipulation"
                 >
-                  {status === 'loading' ? 'Sending…' : web3Ready ? 'Send Message' : 'Add Web3Forms key to send'}
+                  {status === 'loading' ? 'Sending…' : 'Send Message'}
                 </button>
                 <p className="text-center text-[11px] sm:text-xs text-gray-500">
                   Prefer your mail app?{' '}
