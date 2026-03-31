@@ -1,27 +1,48 @@
 """
-Quinton assistant API — local portfolio knowledge only (no OpenAI / Gemini required).
-Run: pip install -r requirements.txt && uvicorn main:app --reload --host 127.0.0.1 --port 8000
+Quinton assistant API — portfolio knowledge + optional OpenAI (keys stay on the server).
+
+Run locally:
+  pip install -r requirements.txt
+  uvicorn main:app --reload --host 127.0.0.1 --port 8000
+
+Set OPENAI_API_KEY (and optionally OPENAI_MODEL) in the environment or a .env file beside this app.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
+try:
     import httpx
 except ImportError:
     httpx = None  # type: ignore
 
+try:
+    from openai import AsyncOpenAI
+except ImportError:
+    AsyncOpenAI = None  # type: ignore
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # -----------------------------------------------------------------------------
 # Knowledge base (keep in sync with src/components/VoiceAssistant.tsx)
 # -----------------------------------------------------------------------------
-KNOWLEDGE_BASE = {
+KNOWLEDGE_BASE: dict[str, Any] = {
     "personal": {
         "name": "Quinton Ndlovu",
         "title": "Full Stack Web Developer & Digital Creator",
@@ -99,11 +120,125 @@ KNOWLEDGE_BASE = {
 
 N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "").strip()
 
-app = FastAPI(title="Portfolio Assistant API", version="2.0")
+_openai_client: Any = None
+
+
+def _cors_origins() -> list[str]:
+    raw = os.environ.get("CORS_ORIGINS", "*").strip()
+    if raw == "*":
+        return ["*"]
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+def _openai_key() -> str:
+    return os.environ.get("OPENAI_API_KEY", "").strip()
+
+
+def _openai_model() -> str:
+    return (os.environ.get("OPENAI_MODEL", "gpt-4o") or "gpt-4o").strip()
+
+
+def get_async_openai() -> Any:
+    """Lazy singleton; None if no key or openai package missing."""
+    global _openai_client
+    if AsyncOpenAI is None:
+        return None
+    key = _openai_key()
+    if not key:
+        return None
+    if _openai_client is None:
+        _openai_client = AsyncOpenAI(api_key=key)
+    return _openai_client
+
+
+def build_dossier_text() -> str:
+    p = KNOWLEDGE_BASE["personal"]
+    skills = KNOWLEDGE_BASE["skills"]
+    projects = KNOWLEDGE_BASE["projects"]
+    services = KNOWLEDGE_BASE["services"]
+    focus = "; ".join(p.get("focusAreas", []))
+    proj_lines = " | ".join(f"{pr['name']}: {pr['description']}" for pr in projects)
+    svc_titles = ", ".join(s["title"] for s in services)
+    return f"""
+WHO YOU REPRESENT (only use when relevant — do not dump this whole list unprompted):
+- Name: {p['name']} · {p['title']} · {p['location']}
+- Tagline: {p.get('tagline', '')}
+- Bio: {p['bio']}
+- Org: {p['organization']}
+- Education / path: {p.get('education', '')}
+- Focus: {focus}
+- Values: {p.get('values', '')}
+- Contact: {p['email']} · phone {p['phone']} · WhatsApp same number {p.get('whatsapp', '')} — chat link: {p.get('whatsapp_chat_url', '')}
+- Links: Portfolio {p.get('portfolio', '')} · LinkedIn {p.get('linkedin', '')} · GitHub {p.get('github', '')}
+- Frontend: {', '.join(skills['frontend'])}
+- Backend: {', '.join(skills['backend'])}
+- Tools: {', '.join(skills['tools'])}
+- Projects: {proj_lines}
+- Services: {svc_titles}
+- Achievements: {' '.join(KNOWLEDGE_BASE['achievements'])}
+- Interests: {', '.join(KNOWLEDGE_BASE['interests'])}
+""".strip()
+
+
+def build_system_prompt(user_status: str) -> str:
+    is_owner = user_status == "Master"
+    dossier = build_dossier_text()
+    owner_rule = (
+        'The user has signed in as your creator (owner mode). Use a friendly "you" and partner tone.'
+        if is_owner
+        else "The user is a guest. Be welcoming and professional."
+    )
+    return f"""Your name is Quinton — the on-site AI assistant on this portfolio. Your human creator is Quinton Ndlovu (the developer in the dossier). When greeting or when it fits naturally, you may invite visitors with something like "Want to know about my creator?" and then help them explore his work, story, and contact.
+
+Style: warm, clear, concise, supportive. Short paragraphs. Offer 1–2 sensible next steps when helpful.
+
+You know the creator from the dossier below — ground answers about him ONLY there; if something isn't listed, say you don't have that detail. For general-world questions unrelated to him, answer helpfully like a good assistant.
+
+When someone asks how to reach Quinton, mention email, phone, and WhatsApp (same number as phone). Say he's happy to hear from people on WhatsApp for quick questions or follow-ups — give the WhatsApp chat link from the dossier when it helps.
+
+Rules:
+- Never open with "As an AI language model." Don't over-apologize.
+- {owner_rule}
+- Prefer plain sentences for voice: no markdown headings, bullets only if short, no code blocks unless they explicitly ask for code.
+
+DOSSIER (about Quinton Ndlovu — your creator):
+{dossier}"""
+
+
+async def try_openai_response(
+    message: str,
+    history: List[ChatMessage],
+    user_status: str,
+) -> Optional[str]:
+    client = get_async_openai()
+    if client is None:
+        return None
+    model = _openai_model()
+    system_prompt = build_system_prompt(user_status or "Guest")
+    msgs: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
+    for h in history[-12:]:
+        msgs.append({"role": "user" if h.isUser else "assistant", "content": h.text})
+    msgs.append({"role": "user", "content": message})
+    try:
+        resp = await client.chat.completions.create(
+            model=model,
+            messages=msgs,
+            max_tokens=1200,
+            temperature=0.75,
+        )
+        choice = resp.choices[0].message.content
+        if choice and choice.strip():
+            return choice.strip()
+    except Exception as e:
+        logger.warning("OpenAI request failed: %s", e)
+    return None
+
+
+app = FastAPI(title="Portfolio Assistant API", version="2.1")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -129,7 +264,6 @@ def _normalize(msg: str) -> str:
 
 def _word_set(text: str) -> set:
     return {w for w in re.findall(r"[a-z0-9']+", _normalize(text)) if len(w) > 1}
-
 
 
 def try_automation_webhook(message: str, user_status: str) -> Optional[str]:
@@ -213,8 +347,8 @@ def compose_local_answer(message: str, user_status: str) -> Tuple[str, str]:
                 "local",
             )
         return (
-            "Hi — I'm Quinton. Want to know about my creator, Quinton Ndlovu? I answer from his portfolio data on this server "
-            "(no cloud key required for basics). What would you like to know?",
+            "Hi — I'm Quinton. Want to know about my creator, Quinton Ndlovu? I answer from his portfolio data on this server. "
+            "What would you like to know?",
             "local",
         )
 
@@ -222,7 +356,7 @@ def compose_local_answer(message: str, user_status: str) -> Tuple[str, str]:
     if any(p in low for p in ("who are you", "what are you", "your name")):
         return (
             "I'm Quinton — the assistant on this site, here to talk about my creator Quinton Ndlovu's work. "
-            "This server holds his knowledge base; the browser can add OpenAI for deeper chat if you configure it.",
+            "This server holds his knowledge base; the API can use OpenAI for richer answers when configured.",
             "local",
         )
 
@@ -322,11 +456,15 @@ def compose_local_answer(message: str, user_status: str) -> Tuple[str, str]:
 
 @app.get("/status")
 async def status():
+    has_key = bool(_openai_key())
+    model = _openai_model() if has_key else None
     return {
         "status": "online",
-        "version": "2.0",
-        "mode": "local-knowledge",
+        "version": "2.1",
+        "mode": "openai+local" if has_key else "local-knowledge",
+        "openai_enabled": has_key,
         "openai_required": False,
+        "model": model,
     }
 
 
@@ -342,11 +480,18 @@ async def chat(request: ChatRequest):
         if auto:
             return {"response": auto, "source": "n8n"}
 
+        llm = await try_openai_response(msg, request.history, user)
+        if llm:
+            return {"response": llm, "source": "openai"}
+
         text, source = compose_local_answer(msg, user)
         return {"response": text, "source": source}
     except HTTPException:
         raise
     except Exception as e:
+        if os.environ.get("DEBUG"):
+            raise
+        logger.exception("chat error")
         raise HTTPException(status_code=500, detail=str(e))
 
 

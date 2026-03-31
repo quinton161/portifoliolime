@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { FaTimes, FaVolumeMute, FaVolumeUp, FaCog, FaMicrophone, FaChevronUp, FaArrowUp, FaWhatsapp } from 'react-icons/fa';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 
 /**
@@ -15,13 +16,89 @@ function getAssistantApiBase(): string {
   return '';
 }
 
-// OpenAI Configuration
-const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY || "";
-const OPENAI_CHAT_MODEL = process.env.REACT_APP_OPENAI_MODEL || 'gpt-4o-mini';
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true // Required for client-side integration
-});
+// Browser OpenAI is optional; keys belong in FastAPI (OPENAI_API_KEY on the server) for production.
+function normalizeEnvKey(raw: string | undefined): string {
+  return (raw ?? "")
+    .trim()
+    .replace(/^['"]+|['"]+$/g, "")
+    .replace(/^[;:\s]+|[;:\s]+$/g, "");
+}
+
+const OPENAI_API_KEY = normalizeEnvKey(process.env.REACT_APP_OPENAI_API_KEY);
+const OPENAI_CHAT_MODEL = normalizeEnvKey(process.env.REACT_APP_OPENAI_MODEL) || 'gpt-4o-mini';
+
+/** Google AI Studio — free tier: https://aistudio.google.com/apikey */
+const GEMINI_API_KEY = normalizeEnvKey(process.env.REACT_APP_GEMINI_API_KEY);
+const GEMINI_MODEL = normalizeEnvKey(process.env.REACT_APP_GEMINI_MODEL) || 'gemini-2.0-flash';
+
+/** Groq — free tier (fast): https://console.groq.com/keys */
+const GROQ_API_KEY = normalizeEnvKey(process.env.REACT_APP_GROQ_API_KEY);
+const GROQ_MODEL = normalizeEnvKey(process.env.REACT_APP_GROQ_MODEL) || 'llama-3.3-70b-versatile';
+
+/** `auto` = Gemini → Groq → OpenAI (free/cheap first). Or force: `gemini` | `groq` | `openai`. */
+const LLM_PROVIDER = (process.env.REACT_APP_LLM_PROVIDER || 'auto').toLowerCase();
+
+function hasBrowserLlmKey(): boolean {
+  return !!(GEMINI_API_KEY || GROQ_API_KEY || OPENAI_API_KEY);
+}
+
+function resolveLlmProvider(): 'gemini' | 'groq' | 'openai' | null {
+  if (LLM_PROVIDER === 'gemini') return GEMINI_API_KEY ? 'gemini' : null;
+  if (LLM_PROVIDER === 'groq') return GROQ_API_KEY ? 'groq' : null;
+  if (LLM_PROVIDER === 'openai') return OPENAI_API_KEY ? 'openai' : null;
+  if (LLM_PROVIDER !== 'auto' && LLM_PROVIDER) return null;
+  if (GEMINI_API_KEY) return 'gemini';
+  if (GROQ_API_KEY) return 'groq';
+  if (OPENAI_API_KEY) return 'openai';
+  return null;
+}
+
+let browserOpenAI: OpenAI | null = null;
+function getBrowserOpenAI(): OpenAI | null {
+  if (!OPENAI_API_KEY) return null;
+  if (!browserOpenAI) {
+    browserOpenAI = new OpenAI({ apiKey: OPENAI_API_KEY, dangerouslyAllowBrowser: true });
+  }
+  return browserOpenAI;
+}
+
+let browserGroq: OpenAI | null = null;
+function getBrowserGroq(): OpenAI | null {
+  if (!GROQ_API_KEY) return null;
+  if (!browserGroq) {
+    browserGroq = new OpenAI({
+      apiKey: GROQ_API_KEY,
+      baseURL: 'https://api.groq.com/openai/v1',
+      dangerouslyAllowBrowser: true,
+    });
+  }
+  return browserGroq;
+}
+
+let geminiClient: GoogleGenerativeAI | null = null;
+function getGeminiClient(): GoogleGenerativeAI | null {
+  if (!GEMINI_API_KEY) return null;
+  if (!geminiClient) geminiClient = new GoogleGenerativeAI(GEMINI_API_KEY);
+  return geminiClient;
+}
+
+async function generateWithGemini(systemPrompt: string, input: string, history: Message[]): Promise<string> {
+  const genAI = getGeminiClient();
+  if (!genAI) throw new Error('Gemini not configured');
+  const model = genAI.getGenerativeModel({
+    model: GEMINI_MODEL,
+    systemInstruction: systemPrompt,
+  });
+  const historyParts = history.slice(-12).map((m) => ({
+    role: m.isUser ? ('user' as const) : ('model' as const),
+    parts: [{ text: m.text }],
+  }));
+  const chat = model.startChat({ history: historyParts });
+  const result = await chat.sendMessage(input);
+  const text = result.response.text();
+  if (!text?.trim()) throw new Error('Empty Gemini response');
+  return text.trim();
+}
 
 // ============================================
 // COMPREHENSIVE KNOWLEDGE BASE ABOUT QUINTON
@@ -94,6 +171,84 @@ const KNOWLEDGE_BASE = {
     "Professional but approachable",
   ],
 };
+
+/**
+ * Strong local answers when no cloud model responded — avoids the old “offline” dead-end.
+ * Mirrors the FastAPI rule layer so the site stays useful without API keys.
+ */
+function smartLocalAssistantReply(raw: string): string {
+  const low = raw.toLowerCase().trim();
+  const p = KNOWLEDGE_BASE.personal;
+  const s = KNOWLEDGE_BASE.skills;
+  const projects = KNOWLEDGE_BASE.projects;
+  const services = KNOWLEDGE_BASE.services;
+
+  if (!low) {
+    return `Ask me about ${p.name}'s projects, skills, how to hire him, or say “contact” — I answer from his portfolio data.`;
+  }
+
+  if (
+    /^(hi|hey|hello|greetings|good\s*(morning|afternoon|evening))\b/.test(low) ||
+    /^(hi|hey|hello)[\s!.]*$/.test(low)
+  ) {
+    return `Hi — I'm Quinton, the assistant here. ${p.name} is a ${p.title} in ${p.location}. Want projects, skills, or how to reach him?`;
+  }
+
+  if (/(who are you|what are you|your name|what can you do|help me|capabilities)/.test(low)) {
+    return `I'm Quinton, your guide on this portfolio. I know ${p.name}'s story, stack, shipped work, and contact — ask naturally, e.g. “what did he build?” or “email?”.`;
+  }
+
+  if (/(offline|not working|broken|api|model|openai|cloud)/.test(low)) {
+    return `I'm running from this page’s knowledge base right now${hasBrowserLlmKey() ? '' : ' — add a free key: REACT_APP_GEMINI_API_KEY (Google AI Studio) or REACT_APP_GROQ_API_KEY (Groq), or run jarvis-backend with OPENAI_API_KEY. Try: “projects”, “skills”, or “contact”.'}`;
+  }
+
+  if (/(who is quinton|about quinton|tell me about|background|bio)/.test(low)) {
+    return `${p.name} — ${p.title} in ${p.location}. ${p.bio} ${p.tagline} He leads engineering at ${p.organization}.`;
+  }
+
+  if (/(project|portfolio|built|shipped|work on|case study)/.test(low)) {
+    const lines = projects.map((x) => `• ${x.name}: ${x.description}`).join("\n");
+    return `Here's a snapshot of his work:\n${lines}\nAsk by name if you want detail.`;
+  }
+
+  if (/(skill|tech|stack|framework|language|tools?)/.test(low)) {
+    return `Frontend: ${s.frontend.join(", ")}. Backend: ${s.backend.join(", ")}. Tools: ${s.tools.join(", ")}.`;
+  }
+
+  if (/(contact|email|reach|hire|whatsapp|phone|call|collab)/.test(low)) {
+    return `Reach ${p.name}: ${p.email}, phone ${p.phone} (same on WhatsApp). Chat: ${p.whatsappChatUrl}. LinkedIn: ${p.linkedin}`;
+  }
+
+  if (/(where|location|based|city|zimbabwe|victoria)/.test(low)) {
+    return `He's based in ${p.location} — ${p.tagline}`;
+  }
+
+  if (/uncommon/.test(low)) {
+    return `He's Lead Developer at ${p.organization}, building education and ops software.`;
+  }
+
+  if (/(service|offer|freelance|consult)/.test(low)) {
+    return services.map((x) => `• ${x.title}: ${x.description}`).join("\n");
+  }
+
+  if (/(achievement|award|accomplish)/.test(low)) {
+    return KNOWLEDGE_BASE.achievements.join(" ");
+  }
+
+  if (/(hobby|interest|fun)/.test(low)) {
+    return `Outside work: ${KNOWLEDGE_BASE.interests.join(", ")}.`;
+  }
+
+  if (/(time|date|day)\b/.test(low)) {
+    const now = new Date();
+    return `Local time here: ${now.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}.`;
+  }
+
+  return `I can talk about ${p.name}'s projects (${projects
+    .slice(0, 3)
+    .map((x) => x.name)
+    .join(", ")}), full-stack skills, services, or contact (${p.email}). What would you like to explore?`;
+}
 
 interface Message {
   id: number;
@@ -169,18 +324,6 @@ function getSpeechRecognitionCtor(): { new (): any } | null {
   if (typeof window === 'undefined') return null;
   const w = window as unknown as { SpeechRecognition?: { new (): any }; webkitSpeechRecognition?: { new (): any } };
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
-}
-
-/**
- * WebKit (Safari + all iOS browsers) is picky: continuous recognition + interim results often fail or hang.
- * Use short sessions and final-only results.
- */
-function preferSpeechFinalOnly(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent;
-  if (/iPad|iPhone|iPod/i.test(ua)) return true;
-  if (/safari/i.test(ua) && !/chrome|chromium|crios|fxios|edg|opr|android/i.test(ua)) return true;
-  return false;
 }
 
 async function getMicStreamWithFallbacks(): Promise<MediaStream> {
@@ -268,51 +411,56 @@ Rules:
 DOSSIER (about Quinton Ndlovu — your creator):
 ${dossier}`;
 
-    const messages = [
-      { role: "system", content: systemPrompt },
-      ...history.slice(-12).map(m => ({
-        role: m.isUser ? "user" : "assistant",
-        content: m.text
+    const openAiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt },
+      ...history.slice(-12).map((m) => ({
+        role: m.isUser ? ('user' as const) : ('assistant' as const),
+        content: m.text,
       })),
-      { role: "user", content: input }
+      { role: 'user', content: input },
     ];
 
-    const response = await openai.chat.completions.create({
+    const provider = resolveLlmProvider();
+    if (!provider) {
+      return smartLocalAssistantReply(input);
+    }
+
+    if (provider === 'gemini') {
+      return await generateWithGemini(systemPrompt, input, history);
+    }
+
+    if (provider === 'groq') {
+      const groq = getBrowserGroq();
+      if (!groq) return smartLocalAssistantReply(input);
+      const response = await groq.chat.completions.create({
+        model: GROQ_MODEL,
+        messages: openAiMessages,
+        max_tokens: 900,
+        temperature: 0.8,
+      });
+      return (
+        response.choices[0]?.message?.content?.trim() ||
+        'Something glitched — try again or ask about projects or contact.'
+      );
+    }
+
+    const client = getBrowserOpenAI();
+    if (!client) return smartLocalAssistantReply(input);
+
+    const response = await client.chat.completions.create({
       model: OPENAI_CHAT_MODEL,
-      messages: messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+      messages: openAiMessages,
       max_tokens: 900,
-      temperature: 0.8
+      temperature: 0.8,
     });
 
     return (
-      response.choices[0].message.content ||
-      "Something glitched on my side — try that again in a second, or ask about Quinton’s projects or contact info."
+      response.choices[0]?.message?.content?.trim() ||
+      'Something glitched on my side — try again, or ask about Quinton’s projects or contact info.'
     );
   } catch (error) {
-    console.error("OpenAI Error:", error);
-    
-    if (lowerInput.includes('hello') || lowerInput.includes('hi')) {
-      return `Hi — I’m Quinton, the assistant on this site. Want to know about my creator, Quinton Ndlovu? I can walk you through his projects, skills, and how to reach him — what would you like?`;
-    }
-    if (lowerInput.includes('quinton') || lowerInput.includes('who are you') || lowerInput.includes('who is he')) {
-      return `${KNOWLEDGE_BASE.personal.name} is a ${KNOWLEDGE_BASE.personal.title} in ${KNOWLEDGE_BASE.personal.location}. ${KNOWLEDGE_BASE.personal.bio} ${KNOWLEDGE_BASE.personal.tagline}`;
-    }
-    if (
-      lowerInput.includes('contact') ||
-      lowerInput.includes('email') ||
-      lowerInput.includes('reach') ||
-      lowerInput.includes('whatsapp') ||
-      lowerInput.includes('phone') ||
-      lowerInput.includes('message him')
-    ) {
-      const p = KNOWLEDGE_BASE.personal;
-      return `You can reach Quinton by email at ${p.email}, phone ${p.phone}, or WhatsApp the same number — ${p.whatsappChatUrl}`;
-    }
-    if (lowerInput.includes('skill') || lowerInput.includes('tech') || lowerInput.includes('stack')) {
-      return `Quinton ships with ${KNOWLEDGE_BASE.skills.frontend.slice(0, 4).join(', ')}, and more — plus backend like ${KNOWLEDGE_BASE.skills.backend.slice(0, 4).join(', ')}. Want the full list or project examples?`;
-    }
-
-    return "I’m offline from the cloud model right now, but I still know Quinton’s story from local data — try “projects”, “contact”, or “skills”.";
+    console.error('LLM Error:', error);
+    return smartLocalAssistantReply(input);
   }
 };
 
@@ -360,6 +508,9 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
   const mainRecActiveRef = useRef(false);
   /** True while handling a user message (commands, API, fallbacks). */
   const processingMessageRef = useRef(false);
+  /** Web Speech API: accumulate finals + last interim; dispatch once on `onend` (fixes Safari/Chrome quirks). */
+  const speechFinalRef = useRef('');
+  const speechInterimRef = useRef('');
   const micReadyRef = useRef(false);
   const isListeningRef = useRef(false);
   const isSpeakingRef = useRef(false);
@@ -398,27 +549,41 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       showToast('Voice typing needs Chrome, Microsoft Edge, or Safari. Firefox does not support it yet — type your message below.');
       return;
     }
+    if (!micReady) {
+      showToast('Tap the green microphone button first so the browser can access your mic — then you can speak.');
+      return;
+    }
 
     const run = (attempt: number) => {
       if (!recognitionRef.current) return;
       try {
+        try {
+          const r = recognitionRef.current as any;
+          if (typeof r.abort === 'function') r.abort();
+          else if (typeof r.stop === 'function') r.stop();
+        } catch {
+          /* not active */
+        }
+        speechFinalRef.current = '';
+        speechInterimRef.current = '';
         recognitionRef.current.start();
         mainRecActiveRef.current = true;
         setIsListening(true);
         setStatusText('Listening...');
       } catch (e) {
-        if (attempt < 6) {
-          window.setTimeout(() => run(attempt + 1), 100 + attempt * 100);
+        if (attempt < 8) {
+          window.setTimeout(() => run(attempt + 1), 120 + attempt * 80);
         } else {
           console.error('Speech recognition start failed after retries:', e);
           mainRecActiveRef.current = false;
           setIsListening(false);
           setStatusText('System Ready');
+          showToast('Could not start speech recognition — try again or type your message.');
         }
       }
     };
-    window.setTimeout(() => run(0), 240);
-  }, [showToast]);
+    window.setTimeout(() => run(0), 120);
+  }, [showToast, micReady]);
 
   const stopListening = useCallback(() => {
     if (!recognitionRef.current) return;
@@ -446,6 +611,11 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       const spoken = textForSpeech(text);
       if (!spoken) return;
       console.log('Assist TTS:', spoken.slice(0, 120) + (spoken.length > 120 ? '…' : ''));
+      try {
+        synthRef.current.resume();
+      } catch {
+        /* ignore */
+      }
       synthRef.current.cancel();
 
       const chunks: string[] =
@@ -533,6 +703,25 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
     console.log('JARVIS: Processing message:', text);
 
     const isOwner = localStorage.getItem('jarvis_owner') === 'true';
+
+    const lowerTrim = text.toLowerCase().trim();
+    if (
+      lowerTrim === 'identify as master' ||
+      lowerTrim === 'i am the owner' ||
+      lowerTrim === 'master'
+    ) {
+      localStorage.setItem('jarvis_owner', 'true');
+      responseText =
+        "Got it — I’ll treat you as Quinton. I’m tuned to your portfolio data and ready when you are. What should we tackle?";
+    } else if (
+      lowerTrim === 'logout' ||
+      lowerTrim === 'clear identity' ||
+      lowerTrim === 'goodbye master'
+    ) {
+      localStorage.removeItem('jarvis_owner');
+      responseText =
+        "Okay — I’ll switch back to guest mode for everyone else. Thanks for stopping by.";
+    }
 
     // 1. Local Navigation & Control Commands first
     if (!responseText) {
@@ -675,7 +864,16 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       }
     }
 
-    // 2. Optional FastAPI backend (localhost or REACT_APP_ASSISTANT_API_URL)
+    // 2. In-browser LLM — Gemini / Groq / OpenAI (runs before FastAPI so local :8000 does not shadow your keys)
+    if (!responseText && hasBrowserLlmKey()) {
+      try {
+        responseText = await generateJarvisResponse(text, messages);
+      } catch (e) {
+        console.error('JARVIS: OpenAI error:', e);
+      }
+    }
+
+    // 3. Optional FastAPI backend (localhost or REACT_APP_ASSISTANT_API_URL) — used when browser GPT did not answer
     if (!responseText && assistantApiBase) {
       try {
         const response = await fetch(`${assistantApiBase}/chat`, {
@@ -704,15 +902,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
         if (process.env.NODE_ENV === 'development') {
           console.info('[Quinton assistant] API /chat unreachable, using other paths.');
         }
-      }
-    }
-
-    // 3. OpenAI — optional when REACT_APP_OPENAI_API_KEY is set and backend did not answer
-    if (!responseText && OPENAI_API_KEY) {
-      try {
-        responseText = await generateJarvisResponse(text, messages);
-      } catch (e) {
-        console.error('JARVIS: OpenAI error:', e);
       }
     }
 
@@ -747,9 +936,9 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       } else if (lowerText.includes('interest') || lowerText.includes('hobby')) {
         responseText = `Outside of coding, Quinton enjoys: ${KNOWLEDGE_BASE.interests.join(', ')}.`;
       } else {
-        responseText = OPENAI_API_KEY
+        responseText = hasBrowserLlmKey()
           ? "I'm afraid that didn't come through cleanly. Could you repeat your question?"
-          : "Start your local assistant API for richer answers: in a terminal run `cd jarvis-backend`, `pip install -r requirements.txt`, then `uvicorn main:app --reload --port 8000`. Or add REACT_APP_OPENAI_API_KEY in .env for cloud AI. I can still answer basics about Quinton’s projects, skills, and contact—what would you like?";
+          : smartLocalAssistantReply(text);
       }
     }
 
@@ -856,31 +1045,31 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       return () => {};
     }
 
-    const webKitish = preferSpeechFinalOnly();
-
     try {
         // Main conversation recognition
         const recognition = new SpeechRecognition();
         recognition.continuous = false;
-        recognition.interimResults = !webKitish;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
         recognition.lang = 'en-US';
 
         recognition.onresult = (event: any) => {
-          let finalText = '';
+          let interim = '';
           for (let i = event.resultIndex; i < event.results.length; i++) {
+            const piece = event.results[i][0]?.transcript ?? '';
             if (event.results[i].isFinal) {
-              finalText += event.results[i][0].transcript;
+              speechFinalRef.current += piece;
+            } else {
+              interim += piece;
             }
           }
-          const trimmed = finalText.trim();
-          if (trimmed) {
-            console.log('JARVIS: Final transcript:', trimmed);
-            handleUserMessageRef.current(trimmed);
-          }
+          speechInterimRef.current = interim;
         };
 
         recognition.onstart = () => {
           console.log('JARVIS: Recognition started');
+          speechFinalRef.current = '';
+          speechInterimRef.current = '';
           mainRecActiveRef.current = true;
           setIsListening(true);
           setStatusText('Listening...');
@@ -888,8 +1077,16 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
 
         recognition.onend = () => {
           console.log('JARVIS: Recognition ended');
+          const combined = (speechFinalRef.current + speechInterimRef.current).trim();
+          speechFinalRef.current = '';
+          speechInterimRef.current = '';
           mainRecActiveRef.current = false;
           setIsListening(false);
+          setStatusText('System Ready');
+          if (combined) {
+            console.log('JARVIS: Transcript:', combined);
+            handleUserMessageRef.current(combined);
+          }
         };
 
         recognition.onerror = (event: any) => {
@@ -918,9 +1115,10 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
           }
 
           if (err === 'network') {
-            setStatusText('Voice service blocked');
-            speakRef.current(
-              "I can't reach the browser's speech service — that's separate from this site. Try turning off VPN, relaxing firewall rules, or type your message instead."
+            // Chrome/Edge send audio to Google’s *speech* servers — different from Gemini chat. Often fails on strict networks; not your API key.
+            setStatusText('Type below — AI works');
+            showToast(
+              'Voice typing uses the browser’s speech service (not your Gemini key). Chat still works — type your message, or try another network/browser.'
             );
             return;
           }
@@ -938,7 +1136,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
         try { recognitionRef.current.stop(); } catch {}
       }
     };
-  }, [voiceToTextSupported]);
+  }, [voiceToTextSupported, showToast]);
 
   // Auto-scroll to messages
   useEffect(() => {
