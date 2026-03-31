@@ -1,119 +1,146 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+
+/** Matches this repo: Create React App (react-scripts), npm start, port 3000. */
+const BOOT_LINES = [
+  { text: 'quinton@portfoliolime:~$ npm start', className: 'text-[#58a6ff]' },
+  { text: '', className: '' },
+  { text: '> portfoliolime@0.1.0 start', className: 'text-zinc-500' },
+  { text: '> react-scripts start', className: 'text-zinc-500' },
+  { text: '', className: '' },
+  { text: 'Compiled successfully!', className: 'text-emerald-400/90' },
+  { text: '  Local: http://localhost:3000', className: 'text-zinc-400' },
+  { text: '  Stack: React · TypeScript · Tailwind · react-scripts (CRA)', className: 'text-emerald-400/80' },
+];
 
 const SplashScreen: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
-  const [isVisible, setIsVisible] = useState(true);
-  const [phase, setPhase] = useState<'loading' | 'welcome' | 'exit'>('loading');
-  const [progress, setProgress] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const [exiting, setExiting] = useState(false);
+  const [phase, setPhase] = useState<'boot' | 'interactive'>('boot');
+  const [lineCount, setLineCount] = useState(0);
+  const [cursorOn, setCursorOn] = useState(true);
+  const skipRef = useRef(false);
 
-  useEffect(() => {
-    // Smooth progress bar simulation
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return prev + 1;
-      });
-    }, 20);
-
-    // Phase transitions
-    const welcomeTimer = setTimeout(() => {
-      setPhase('welcome');
-    }, 2200);
-
-    const exitTimer = setTimeout(() => {
-      setPhase('exit');
-      setIsVisible(false);
-      setTimeout(onComplete, 1200);
-    }, 4200);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(welcomeTimer);
-      clearTimeout(exitTimer);
-    };
+  const finish = useCallback(() => {
+    if (skipRef.current) return;
+    skipRef.current = true;
+    setExiting(true);
+    window.setTimeout(() => {
+      setVisible(false);
+      onComplete();
+    }, 700);
   }, [onComplete]);
 
+  // Boot: reveal terminal lines
+  useEffect(() => {
+    if (phase !== 'boot') return;
+    if (lineCount >= BOOT_LINES.length) {
+      const t = window.setTimeout(() => setPhase('interactive'), 400);
+      return () => clearTimeout(t);
+    }
+    const delay = BOOT_LINES[lineCount].text === '' ? 120 : 280;
+    const t = window.setTimeout(() => setLineCount((c) => c + 1), delay);
+    return () => clearTimeout(t);
+  }, [phase, lineCount]);
+
+  // Blink cursor
+  useEffect(() => {
+    const id = window.setInterval(() => setCursorOn((c) => !c), 530);
+    return () => clearInterval(id);
+  }, []);
+
+  // Enter / Return dismisses splash anytime (developer shortcut)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        finish();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [finish]);
+
+  if (!visible) return null;
+
   return (
-    <div 
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#000] transition-all duration-1000 ease-[cubic-bezier(0.8,0,0.1,1)] ${
-        isVisible ? 'opacity-100' : 'opacity-0 scale-95 pointer-events-none'
+    <div
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0d1117] font-mono text-sm transition-all duration-700 ease-out ${
+        exiting ? 'opacity-0 scale-[1.02] pointer-events-none' : 'opacity-100'
       }`}
+      role="dialog"
+      aria-label="Portfolio loading"
+      aria-modal="true"
     >
-      <div className="relative w-full max-w-md px-10">
-        {/* Loading Phase */}
-        <div className={`transition-all duration-1000 ease-in-out flex flex-col items-center ${
-          phase === 'loading' ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-10 scale-95'
-        }`}>
-          <div className="mb-12 relative">
-            <div className="w-20 h-20 border-2 border-white/10 rounded-full flex items-center justify-center">
-              <div className="w-12 h-12 border-t-2 border-white rounded-full animate-spin"></div>
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white/40 tracking-widest">
-              {progress}%
-            </div>
+      {/* subtle grid */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)`,
+          backgroundSize: '24px 24px',
+        }}
+      />
+
+      <button
+        type="button"
+        onClick={finish}
+        className="absolute right-4 top-4 z-10 rounded-lg border border-zinc-700/80 bg-zinc-900/80 px-3 py-1.5 text-[11px] font-medium text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200"
+      >
+        Skip →
+      </button>
+
+      <div className="relative w-full max-w-2xl px-4 sm:px-8">
+        <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.35em] text-zinc-600">Developer preview</p>
+
+        <div className="rounded-xl border border-zinc-800 bg-[#010409]/90 shadow-2xl shadow-black/50 backdrop-blur-sm">
+          <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-2.5">
+            <span className="h-3 w-3 rounded-full bg-[#ff5f56]" />
+            <span className="h-3 w-3 rounded-full bg-[#ffbd2e]" />
+            <span className="h-3 w-3 rounded-full bg-[#27c93f]" />
+            <span className="ml-2 text-[11px] text-zinc-500">bash — portfoliolime</span>
           </div>
-          
-          <h1 className="text-white text-3xl md:text-4xl font-medium tracking-[0.2em] uppercase">
-            Loading <span className="font-black text-white ml-2">Quinton</span>
-          </h1>
-          <p className="mt-4 text-white/30 text-[10px] uppercase tracking-[0.5em] font-bold animate-pulse">
-            Establishing digital presence
-          </p>
+          <div className="min-h-[200px] space-y-1.5 px-4 py-4 text-[13px] leading-relaxed sm:text-sm">
+            {BOOT_LINES.slice(0, lineCount).map((line, i) => (
+              <div key={i} className={line.className || 'text-zinc-300'}>
+                {line.text || '\u00a0'}
+              </div>
+            ))}
+            {phase === 'boot' && lineCount < BOOT_LINES.length && (
+              <span className={`inline-block h-4 w-2 translate-y-0.5 bg-emerald-400 ${cursorOn ? 'opacity-100' : 'opacity-0'}`} />
+            )}
+          </div>
         </div>
 
-        {/* Welcome Phase */}
-        <div className={`absolute inset-0 flex flex-col items-center justify-center transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-          phase === 'welcome' ? 'opacity-100 translate-y-0 scale-100' : 
-          phase === 'loading' ? 'opacity-0 translate-y-10 scale-110' : 'opacity-0 -translate-y-10 scale-90'
-        }`}>
-          <div className="overflow-hidden">
-            <h1 className="text-white text-7xl md:text-9xl font-black tracking-tighter leading-none animate-reveal-text">
-              WELCOME
-            </h1>
+        {phase === 'interactive' && (
+          <div className="mt-8 flex flex-col items-center gap-4 text-center opacity-0 motion-safe:animate-[splashFadeIn_0.55s_ease-out_forwards]">
+            <p className="text-base font-semibold text-zinc-200 sm:text-lg">
+              Quinton Ndlovu <span className="text-zinc-500">—</span> Full Stack Developer
+            </p>
+            <p className="max-w-md text-xs text-zinc-500">
+              Explore projects, stack, and contact — or tap the assistant in the corner.
+            </p>
+            <button
+              type="button"
+              onClick={finish}
+              className="group relative overflow-hidden rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-8 py-3 text-sm font-semibold text-emerald-400 transition hover:border-emerald-400/60 hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+            >
+              <span className="relative z-10">$ ./enter-portfolio.sh</span>
+              <span
+                className="absolute inset-0 -translate-x-full bg-emerald-500/10 transition group-hover:translate-x-0"
+                aria-hidden
+              />
+            </button>
+            <p className="text-[11px] text-zinc-600">
+              <kbd className="rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 font-mono text-zinc-400">Enter</kbd> anytime to skip
+            </p>
           </div>
-          <div className="h-[1px] w-0 bg-gradient-to-r from-transparent via-white/50 to-transparent mt-6 animate-line-expand"></div>
-          <p className="mt-6 text-white/40 text-sm font-medium tracking-[0.3em] uppercase animate-fade-in-delayed">
-            To the Portfolio of Quinton Ndlovu
-          </p>
-        </div>
+        )}
       </div>
-
-      {/* Ultra-minimal bottom progress line */}
-      <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white/5">
-        <div 
-          className="h-full bg-white transition-all duration-300 ease-out shadow-[0_0_15px_rgba(255,255,255,0.5)]"
-          style={{ width: `${progress}%` }}
-        ></div>
-      </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes reveal-text {
-          0% { transform: translateY(100%); opacity: 0; }
-          100% { transform: translateY(0); opacity: 1; }
+      <style>{`
+        @keyframes splashFadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-reveal-text {
-          animation: reveal-text 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        
-        @keyframes line-expand {
-          0% { width: 0%; opacity: 0; }
-          100% { width: 60%; opacity: 1; }
-        }
-        .animate-line-expand {
-          animation: line-expand 1.5s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards;
-        }
-
-        @keyframes fade-in-delayed {
-          0% { opacity: 0; transform: translateY(10px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-delayed {
-          opacity: 0;
-          animation: fade-in-delayed 1s cubic-bezier(0.16, 1, 0.3, 1) 1s forwards;
-        }
-      `}} />
+      `}</style>
     </div>
   );
 };

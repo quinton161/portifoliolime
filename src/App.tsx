@@ -26,7 +26,8 @@ const App: React.FC = () => {
     <>
       {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
       <div className={`min-h-screen bg-[#F5F5F7] selection:bg-black selection:text-white transition-opacity duration-1000 ${showSplash ? 'opacity-0' : 'opacity-100'}`}>
-        <Header 
+        <Header
+          heroReady={!showSplash}
           onScrollToAbout={() => scrollToSection(aboutRef)}
           onScrollToPortfolio={() => scrollToSection(portfolioRef)}
           onScrollToServices={() => scrollToSection(servicesRef)}
@@ -52,11 +53,11 @@ const App: React.FC = () => {
           </div>
         </main>
 
-        <footer className="bg-white py-12 px-8 border-t border-gray-100">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="font-bold text-xl tracking-tighter text-black">Quinton</div>
-            <p className="text-gray-500 text-sm">© 2024 Quinton Ndlovu. All rights reserved.</p>
-            <div className="flex gap-8 text-sm font-medium text-gray-500">
+        <footer className="bg-white py-8 sm:py-12 px-4 sm:px-8 border-t border-gray-100">
+          <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-6 md:gap-8 text-center md:text-left">
+            <div className="font-bold text-lg sm:text-xl tracking-tighter text-black">Quinton</div>
+            <p className="text-gray-500 text-xs sm:text-sm order-last md:order-none">© 2026 Quinton Ndlovu. All rights reserved.</p>
+            <div className="flex flex-wrap justify-center gap-4 sm:gap-8 text-xs sm:text-sm font-medium text-gray-500">
               <span className="hover:text-black transition-colors cursor-pointer">Privacy Policy</span>
               <span className="hover:text-black transition-colors cursor-pointer">Terms of Service</span>
             </div>

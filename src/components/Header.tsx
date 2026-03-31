@@ -1,7 +1,31 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FaGithub, FaLinkedin, FaFacebook, FaDownload } from 'react-icons/fa';
 
+function useCountUp(end: number, durationMs: number, enabled: boolean) {
+  const [value, setValue] = useState(0);
+  const rafRef = useRef(0);
+  useEffect(() => {
+    if (!enabled) {
+      setValue(0);
+      return;
+    }
+    let start: number | null = null;
+    const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
+    const step = (ts: number) => {
+      if (start === null) start = ts;
+      const t = Math.min((ts - start) / durationMs, 1);
+      setValue(Math.round(easeOutCubic(t) * end));
+      if (t < 1) rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [end, durationMs, enabled]);
+  return value;
+}
+
 interface HeaderProps {
+  /** When true (splash finished), hero stats animate from 0. */
+  heroReady?: boolean;
   onScrollToAbout: () => void;
   onScrollToPortfolio: () => void;
   onScrollToServices: () => void;
@@ -10,12 +34,15 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({
+  heroReady = false,
   onScrollToAbout,
   onScrollToPortfolio,
   onScrollToServices,
   onScrollToResume,
   onScrollToContact
 }) => {
+  const projectsCount = useCountUp(200, 1900, heroReady);
+  const startupsCount = useCountUp(50, 2100, heroReady);
   const renderIcon = (Icon: any, className?: string, size?: number) => {
     return React.createElement(Icon, { className, size });
   };
@@ -37,48 +64,66 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <section className="min-h-screen bg-[#F5F5F7] flex flex-col p-8 md:p-12 lg:p-16 font-sans text-[#1D1D1F]">
+    <section className="min-h-screen bg-[#F5F5F7] flex flex-col p-4 sm:p-8 md:p-12 lg:p-16 font-sans text-[#1D1D1F]">
       {/* Navigation Bar */}
-      <nav className="flex justify-between items-center w-full mb-12">
-        <div className="font-bold text-2xl tracking-tighter cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Quinton</div>
-        <div className="space-x-8 hidden md:flex text-sm font-semibold text-gray-500">
+      <nav className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between w-full mb-8 sm:mb-12 min-w-0">
+        <div
+          className="font-bold text-xl sm:text-2xl tracking-tighter cursor-pointer shrink-0"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        >
+          Quinton
+        </div>
+        <div className="hidden md:flex flex-wrap items-center gap-x-6 lg:gap-x-8 gap-y-2 text-sm font-semibold text-gray-500">
           <button onClick={onScrollToAbout} className="hover:text-black transition-colors">About Me</button>
           <button onClick={onScrollToPortfolio} className="hover:text-black transition-colors">Portfolio</button>
           <button onClick={onScrollToServices} className="hover:text-black transition-colors">Services</button>
           <button onClick={onScrollToResume} className="hover:text-black transition-colors">Resume</button>
         </div>
-        <div className="flex items-center gap-4">
-          <button 
+        <div className="flex flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto sm:justify-end min-w-0">
+          <button
+            type="button"
             onClick={handleDownload}
-            className="flex items-center gap-2 bg-white border border-gray-200 px-6 py-2.5 rounded-full hover:bg-black hover:text-white transition-all text-sm font-bold shadow-sm"
+            className="flex flex-1 sm:flex-initial min-w-0 items-center justify-center gap-2 bg-white border border-gray-200 px-4 sm:px-6 py-2.5 rounded-full hover:bg-black hover:text-white transition-all text-xs sm:text-sm font-bold shadow-sm touch-manipulation"
           >
-            Download CV {renderIcon(FaDownload, "text-xs")}
+            <span className="truncate">Download CV</span> {renderIcon(FaDownload, "text-xs shrink-0")}
           </button>
-          <button onClick={onScrollToContact} className="bg-black text-white px-6 py-2.5 rounded-full hover:bg-gray-800 transition-all text-sm font-bold shadow-lg shadow-black/10">
-            Book A Call ↗
+          <button
+            type="button"
+            onClick={onScrollToContact}
+            className="flex flex-1 sm:flex-initial min-w-0 justify-center bg-black text-white px-4 sm:px-6 py-2.5 rounded-full hover:bg-gray-800 transition-all text-xs sm:text-sm font-bold shadow-lg shadow-black/10 touch-manipulation"
+          >
+            <span className="truncate">Book A Call</span> <span className="shrink-0 ml-0.5">↗</span>
           </button>
         </div>
       </nav>
 
       {/* Hero Content */}
-      <div className="flex flex-col lg:flex-row flex-grow items-center justify-between gap-12 lg:gap-24 max-w-7xl mx-auto w-full">
-        <div className="flex-1 space-y-8 order-2 lg:order-1 text-center lg:text-left">
-          <div className="flex justify-center lg:justify-start gap-12">
+      <div className="flex flex-col lg:flex-row flex-grow items-center justify-between gap-8 sm:gap-12 lg:gap-24 max-w-7xl mx-auto w-full min-w-0">
+        <div className="flex-1 space-y-6 sm:space-y-8 order-2 lg:order-1 text-center lg:text-left min-w-0 px-1">
+          <div className="flex justify-center lg:justify-start gap-8 sm:gap-12">
             <div>
-              <span className="text-4xl font-bold tracking-tighter italic">200+</span>
+              <span className="text-4xl font-bold tracking-tighter italic tabular-nums text-[#1D1D1F]">
+                {projectsCount}
+                <span className="text-gray-400">+</span>
+              </span>
               <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold mt-2">Projects Completed</p>
             </div>
             <div>
-              <span className="text-4xl font-bold tracking-tighter italic">50+</span>
+              <span className="text-4xl font-bold tracking-tighter italic tabular-nums text-[#1D1D1F]">
+                {startupsCount}
+                <span className="text-gray-400">+</span>
+              </span>
               <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold mt-2">Startups Raised</p>
             </div>
           </div>
           
           <div className="space-y-2">
-            <h1 className="text-7xl md:text-8xl lg:text-[10rem] font-black tracking-tighter leading-[0.8]">
+            <h1 className="text-[min(18vw,10rem)] sm:text-7xl md:text-8xl lg:text-[10rem] font-black tracking-tighter leading-[0.85] sm:leading-[0.8] break-words">
               HELLO<span className="text-gray-300">.</span>
             </h1>
-            <p className="text-xl md:text-2xl font-bold tracking-tight text-gray-800">— I'm Quinton, a software developer.</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-gray-800 px-1 sm:px-0">
+              — I'm Quinton, a software developer.
+            </p>
             
             <div className="flex justify-center lg:justify-start gap-3 pt-4">
               {socialLinks.map((social) => (
@@ -98,8 +143,8 @@ const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Your Portrait Area */}
-        <div className="flex-1 flex justify-center lg:justify-end items-center order-1 lg:order-2 w-full">
-           <div className="relative w-64 h-64 md:w-80 md:h-80 lg:w-[450px] lg:h-[450px] animate-float">
+        <div className="flex-1 flex justify-center lg:justify-end items-center order-1 lg:order-2 w-full min-w-0">
+           <div className="relative mx-auto w-52 h-52 min-[400px]:w-60 min-[400px]:h-60 sm:w-64 sm:h-64 md:w-80 md:h-80 lg:w-[450px] lg:h-[450px] max-w-[90vw] animate-float">
              <div className="absolute inset-0 bg-black/5 rounded-full blur-3xl -z-10 animate-pulse"></div>
              <img 
                src="/images/quinton.jpeg" 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { FaTimes, FaVolumeMute, FaVolumeUp, FaCog, FaMicrophone, FaChevronUp } from 'react-icons/fa';
+import { FaTimes, FaVolumeMute, FaVolumeUp, FaCog, FaMicrophone, FaChevronUp, FaArrowUp, FaWhatsapp } from 'react-icons/fa';
 import OpenAI from 'openai';
 
 /**
@@ -35,6 +35,8 @@ const KNOWLEDGE_BASE = {
     email: "quintonndlovu161@gmail.com",
     phone: "+263 785385293",
     whatsapp: "+263 785385293",
+    /** Same number — opens WhatsApp chat (mobile + desktop). */
+    whatsappChatUrl: "https://wa.me/263785385293",
     linkedin: "https://www.linkedin.com/in/quinton-ndlovu-40b559341/",
     github: "https://github.com/quinton-dev",
     portfolio: "https://portifoliolime-dz.vercel.app/",
@@ -238,7 +240,7 @@ WHO YOU REPRESENT (only use when relevant — do not dump this whole list unprom
 - Education / path: ${KNOWLEDGE_BASE.personal.education}
 - Focus: ${KNOWLEDGE_BASE.personal.focusAreas.join('; ')}
 - Values: ${KNOWLEDGE_BASE.personal.values}
-- Contact: ${KNOWLEDGE_BASE.personal.email} · ${KNOWLEDGE_BASE.personal.phone} · WhatsApp ${KNOWLEDGE_BASE.personal.whatsapp}
+- Contact: ${KNOWLEDGE_BASE.personal.email} · phone ${KNOWLEDGE_BASE.personal.phone} · WhatsApp same number ${KNOWLEDGE_BASE.personal.whatsapp} — visitors can message him on WhatsApp; chat link: ${KNOWLEDGE_BASE.personal.whatsappChatUrl}
 - Links: Portfolio ${KNOWLEDGE_BASE.personal.portfolio} · LinkedIn ${KNOWLEDGE_BASE.personal.linkedin} · GitHub ${KNOWLEDGE_BASE.personal.github}
 - Frontend: ${KNOWLEDGE_BASE.skills.frontend.join(', ')}
 - Backend: ${KNOWLEDGE_BASE.skills.backend.join(', ')}
@@ -255,6 +257,8 @@ WHO YOU REPRESENT (only use when relevant — do not dump this whole list unprom
 Style: warm, clear, concise, supportive. Short paragraphs. Offer 1–2 sensible next steps when helpful.
 
 You know the creator from the dossier below — ground answers about him ONLY there; if something isn’t listed, say you don’t have that detail. For general-world questions unrelated to him, answer helpfully like a good assistant.
+
+When someone asks how to reach Quinton, mention email, phone, and WhatsApp (same number as phone). Say he’s happy to hear from people on WhatsApp for quick questions or follow-ups — give the WhatsApp chat link from the dossier when it helps.
 
 Rules:
 - Never open with “As an AI language model.” Don’t over-apologize.
@@ -293,6 +297,17 @@ ${dossier}`;
     if (lowerInput.includes('quinton') || lowerInput.includes('who are you') || lowerInput.includes('who is he')) {
       return `${KNOWLEDGE_BASE.personal.name} is a ${KNOWLEDGE_BASE.personal.title} in ${KNOWLEDGE_BASE.personal.location}. ${KNOWLEDGE_BASE.personal.bio} ${KNOWLEDGE_BASE.personal.tagline}`;
     }
+    if (
+      lowerInput.includes('contact') ||
+      lowerInput.includes('email') ||
+      lowerInput.includes('reach') ||
+      lowerInput.includes('whatsapp') ||
+      lowerInput.includes('phone') ||
+      lowerInput.includes('message him')
+    ) {
+      const p = KNOWLEDGE_BASE.personal;
+      return `You can reach Quinton by email at ${p.email}, phone ${p.phone}, or WhatsApp the same number — ${p.whatsappChatUrl}`;
+    }
     if (lowerInput.includes('skill') || lowerInput.includes('tech') || lowerInput.includes('stack')) {
       return `Quinton ships with ${KNOWLEDGE_BASE.skills.frontend.slice(0, 4).join(', ')}, and more — plus backend like ${KNOWLEDGE_BASE.skills.backend.slice(0, 4).join(', ')}. Want the full list or project examples?`;
     }
@@ -315,11 +330,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
   const [isMuted, setIsMuted] = useState(false);
   const [isJarvisOnline, setIsJarvisOnline] = useState(false);
   const [messages, setMessages] = useState<Message[]>(loadConversation);
-  /** Off by default — only listens for “Jarvis” when you turn on hands-free in settings (saved in localStorage). */
-  const [wakeWordEnabled, setWakeWordEnabled] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('quinton_wake_word') === 'true';
-  });
   const [showSettings, setShowSettings] = useState(false);
   const [statusText, setStatusText] = useState('Initializing...');
   /** False in Firefox and other browsers without SpeechRecognition; mic/TTS may still work elsewhere. */
@@ -346,13 +356,9 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const wakeWordRecognitionRef = useRef<any>(null);
-  /** True while the main (conversation) SpeechRecognition session is active — blocks wake from grabbing the mic. */
+  /** True while the main (conversation) SpeechRecognition session is active. */
   const mainRecActiveRef = useRef(false);
-  /** True while push-to-talk / wake flow is starting main recognition — wake's onend must not restart in this gap (Chrome: one session at a time). */
-  const mainRecPendingRef = useRef(false);
-  const lastWakeTriggerAtRef = useRef(0);
-  /** True while handling a user message (commands, API, fallbacks) so wake word does not steal the mic mid-flight. */
+  /** True while handling a user message (commands, API, fallbacks). */
   const processingMessageRef = useRef(false);
   const micReadyRef = useRef(false);
   const isListeningRef = useRef(false);
@@ -385,75 +391,13 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
     toastTimerRef.current = setTimeout(() => setToast(null), 6500);
   }, []);
 
-  const stopWakeWordListening = useCallback(() => {
-    if (wakeWordRecognitionRef.current) {
-      try {
-        wakeWordRecognitionRef.current.stop();
-      } catch {}
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!voiceToTextSupported) {
-      setWakeWordEnabled(false);
-      try {
-        localStorage.setItem('quinton_wake_word', 'false');
-      } catch {
-        /* ignore */
-      }
-      stopWakeWordListening();
-    }
-  }, [voiceToTextSupported, stopWakeWordListening]);
-
-  const startWakeWordListening = useCallback(() => {
-    if (isOpenRef.current) return;
-    if (mainRecPendingRef.current) return;
-    if (
-      !micReadyRef.current ||
-      mainRecActiveRef.current ||
-      isSpeakingRef.current ||
-      processingMessageRef.current
-    ) {
-      return;
-    }
-    if (wakeWordRecognitionRef.current && wakeWordEnabled && voiceToTextSupported) {
-      try {
-        wakeWordRecognitionRef.current.start();
-      } catch {
-        // Already started
-      }
-    }
-  }, [wakeWordEnabled, voiceToTextSupported]);
-
-  /** Resume wake word after the conversation recognizer has fully released (Chrome: only one SpeechRecognition at a time). */
-  const scheduleWakeResume = useCallback(
-    (delayMs: number) => {
-      window.setTimeout(() => {
-        if (isOpenRef.current || mainRecPendingRef.current) return;
-        if (
-          wakeWordEnabled &&
-          voiceToTextSupported &&
-          micReadyRef.current &&
-          !mainRecActiveRef.current &&
-          !isSpeakingRef.current &&
-          !processingMessageRef.current
-        ) {
-          startWakeWordListening();
-        }
-      }, delayMs);
-    },
-    [wakeWordEnabled, voiceToTextSupported, startWakeWordListening]
-  );
-
-  // Toggle listening — always stop wake first + delay so wake's onend cannot restart before main .start() (single SR slot in Chrome)
+  // Push-to-talk only — no background wake word listening.
   const startListening = useCallback(() => {
     if (!recognitionRef.current || mainRecActiveRef.current) return;
     if (!getSpeechRecognitionCtor()) {
       showToast('Voice typing needs Chrome, Microsoft Edge, or Safari. Firefox does not support it yet — type your message below.');
       return;
     }
-    mainRecPendingRef.current = true;
-    stopWakeWordListening();
 
     const run = (attempt: number) => {
       if (!recognitionRef.current) return;
@@ -467,16 +411,14 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
           window.setTimeout(() => run(attempt + 1), 100 + attempt * 100);
         } else {
           console.error('Speech recognition start failed after retries:', e);
-          mainRecPendingRef.current = false;
           mainRecActiveRef.current = false;
           setIsListening(false);
           setStatusText('System Ready');
-          scheduleWakeResume(300);
         }
       }
     };
-    window.setTimeout(() => run(0), 420);
-  }, [stopWakeWordListening, scheduleWakeResume, showToast]);
+    window.setTimeout(() => run(0), 240);
+  }, [showToast]);
 
   const stopListening = useCallback(() => {
     if (!recognitionRef.current) return;
@@ -496,21 +438,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       startListening();
     }
   };
-
-  useEffect(() => {
-    if (isOpen) {
-      stopWakeWordListening();
-    }
-  }, [isOpen, stopWakeWordListening]);
-
-  /** Hands-free wake runs only while chat is closed — when the panel is open, only the mic button controls listening (like typical voice UIs). */
-  useEffect(() => {
-    if (!micReady || !wakeWordEnabled || isOpen) return;
-    const id = window.setTimeout(() => {
-      startWakeWordListening();
-    }, 400);
-    return () => clearTimeout(id);
-  }, [micReady, wakeWordEnabled, isOpen, startWakeWordListening]);
 
   // Text-to-speech: Copilot-like cadence (en-US–biased voice, slightly quicker rate, chunked for long replies)
   const speak = useCallback((text: string) => {
@@ -546,7 +473,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
         const next = () => {
           if (!synthRef.current || i >= chunks.length) {
             setIsSpeaking(false);
-            scheduleWakeResume(180);
             return;
           }
           const u = new SpeechSynthesisUtterance(chunks[i]);
@@ -554,7 +480,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
           u.onstart = () => {
             if (i === 0) {
               setIsSpeaking(true);
-              stopWakeWordListening();
             }
           };
           u.onend = () => {
@@ -563,7 +488,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
           };
           u.onerror = () => {
             setIsSpeaking(false);
-            scheduleWakeResume(180);
           };
           synthRef.current!.speak(u);
         };
@@ -580,59 +504,9 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
         runQueue();
       }
     } catch (e) {
-      console.error('Speech error:', e);
+          console.error('Speech error:', e);
     }
-  }, [isMuted, scheduleWakeResume, stopWakeWordListening]);
-
-  // Handle wake word detection
-  const handleWakeWordDetected = useCallback(() => {
-    mainRecPendingRef.current = true;
-    stopWakeWordListening();
-    setIsOpen(true);
-    
-    const isOwner = localStorage.getItem('jarvis_owner') === 'true';
-
-    const ownerLines = [
-      "Hey — I'm Quinton. I'm listening — want to hear about my creator or dive into something else?",
-      "I'm here. Ask about my creator Quinton Ndlovu, or tell me what you need.",
-      "Go ahead — I can talk about my creator's projects, skills, or how to reach him.",
-      "Ready when you are — want to know about my creator?",
-      "Hey — Quinton here. What should we explore about my creator's work?",
-    ];
-    const guestLine =
-      "Hi — I'm Quinton. Want to know about my creator? He's Quinton Ndlovu — ask me about his projects, skills, or how to reach him.";
-    const line = isOwner
-      ? ownerLines[Math.floor(Math.random() * ownerLines.length)]
-      : guestLine;
-    
-    // Avoid stacking duplicate wake activations
-    setMessages(prev => {
-      const last = prev[prev.length - 1];
-      if (last && !last.isUser && /listening|i'm here|ready when you|my creator|want to know/i.test(last.text)) {
-        return prev;
-      }
-      const activationMessage: Message = {
-        id: Date.now(),
-        text: line,
-        isUser: false,
-        timestamp: new Date()
-      };
-      return [...prev, activationMessage];
-    });
-
-    setStatusText('Listening...');
-    
-    if (!isMuted) {
-      speak(line);
-    }
-
-    // Longer delay if TTS plays so the mic does not fight with the speaker or catch the greeting as input
-    const listenDelay = isMuted ? 350 : 1200;
-    setTimeout(() => {
-      startListening();
-      inputRef.current?.focus();
-    }, listenDelay);
-  }, [isMuted, speak, startListening, stopWakeWordListening]);
+  }, [isMuted]);
 
   // Handle user message
   const handleUserMessage = async (text: string) => {
@@ -668,11 +542,30 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
         const isAbout = lowerCmd.includes('about') || lowerCmd.includes('who are you') || lowerCmd.includes('who is quinton');
         const isProjects = lowerCmd.includes('project') || lowerCmd.includes('work') || lowerCmd.includes('portfolio');
         const isSkills = lowerCmd.includes('skill') || lowerCmd.includes('tech') || lowerCmd.includes('stack');
-        const isContact = lowerCmd.includes('contact') || lowerCmd.includes('touch') || lowerCmd.includes('email');
+        const isContact =
+          lowerCmd.includes('contact') ||
+          lowerCmd.includes('touch') ||
+          lowerCmd.includes('email') ||
+          lowerCmd.includes('whatsapp') ||
+          lowerCmd.includes('whats app');
         const isResume = lowerCmd.includes('resume') || lowerCmd.includes('cv') || lowerCmd.includes('experience');
         const isHome = lowerCmd.includes('home') || lowerCmd.includes('top') || lowerCmd.includes('start');
         
         const isScroll = lowerCmd.includes('scroll to') || lowerCmd.includes('open') || lowerCmd.includes('show') || lowerCmd.includes('view') || lowerCmd.includes('go to');
+
+        const waUrl = KNOWLEDGE_BASE.personal.whatsappChatUrl;
+        const wantsWhatsAppApp =
+          /\bwhatsapp\b/.test(lowerCmd) &&
+          /\b(open|chat|message|text|start|link)\b/.test(lowerCmd);
+        if (wantsWhatsAppApp && waUrl) {
+          try {
+            window.open(waUrl, '_blank', 'noopener,noreferrer');
+          } catch {
+            window.location.href = waUrl;
+          }
+          speak('Opening WhatsApp — you can message him there.');
+          return true;
+        }
 
         if (isAbout && isScroll) {
           const el = document.getElementById('about');
@@ -705,11 +598,15 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
           const el = document.getElementById('contact');
           if (el) {
             el.scrollIntoView({ behavior: 'smooth' });
-            speak("Opening contact — you can reach out from there.");
+            speak(
+              lowerCmd.includes('whatsapp')
+                ? "Opening contact — you can WhatsApp him at the same number listed there."
+                : "Opening contact — you can reach out from there."
+            );
             return true;
           }
         }
-        
+
         if (isResume && isScroll) {
           const el = document.getElementById('resume');
           if (el) {
@@ -835,8 +732,16 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
         responseText = `Quinton's key projects include: ${projectList}. He specialized in creating high-performance digital solutions at Uncommon. Which one should I detail?`;
       } else if (lowerText.includes('uncommon')) {
         responseText = "Quinton is a lead developer at Uncommon.org, where he drives technological education and employment initiatives through advanced software solutions.";
-      } else if (lowerText.includes('contact') || lowerText.includes('email') || lowerText.includes('reach')) {
-        responseText = `You can reach Quinton via email at ${KNOWLEDGE_BASE.personal.email} or on LinkedIn at ${KNOWLEDGE_BASE.personal.linkedin}. He is based in Victoria Falls.`;
+      } else if (
+        lowerText.includes('contact') ||
+        lowerText.includes('email') ||
+        lowerText.includes('reach') ||
+        lowerText.includes('whatsapp') ||
+        lowerText.includes('phone') ||
+        lowerText.includes('call')
+      ) {
+        const p = KNOWLEDGE_BASE.personal;
+        responseText = `You can reach Quinton by email at ${p.email}, phone ${p.phone}, or WhatsApp the same number (${p.whatsapp}). Quick WhatsApp chat: ${p.whatsappChatUrl} — he’s also on LinkedIn: ${p.linkedin}. Based in Victoria Falls.`;
       } else if (lowerText.includes('achievement') || lowerText.includes('accomplishment')) {
         responseText = `Some of Quinton's achievements: ${KNOWLEDGE_BASE.achievements.join(' ')}`;
       } else if (lowerText.includes('interest') || lowerText.includes('hobby')) {
@@ -868,22 +773,13 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
     } finally {
       setIsThinking(false);
       processingMessageRef.current = false;
-      scheduleWakeResume(280);
     }
   };
 
   const handleUserMessageRef = useRef(handleUserMessage);
   handleUserMessageRef.current = handleUserMessage;
-  const handleWakeWordDetectedRef = useRef(handleWakeWordDetected);
-  handleWakeWordDetectedRef.current = handleWakeWordDetected;
   const speakRef = useRef(speak);
   speakRef.current = speak;
-  const scheduleWakeResumeRef = useRef(scheduleWakeResume);
-  scheduleWakeResumeRef.current = scheduleWakeResume;
-  const startWakeWordListeningRef = useRef(startWakeWordListening);
-  startWakeWordListeningRef.current = startWakeWordListening;
-  const wakeWordEnabledRef = useRef(wakeWordEnabled);
-  wakeWordEnabledRef.current = wakeWordEnabled;
   const voiceToTextSupportedRef = useRef(voiceToTextSupported);
   voiceToTextSupportedRef.current = voiceToTextSupported;
 
@@ -952,7 +848,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
 
     if (!voiceToTextSupported) {
       recognitionRef.current = null;
-      wakeWordRecognitionRef.current = null;
       return () => {};
     }
 
@@ -962,7 +857,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
     }
 
     const webKitish = preferSpeechFinalOnly();
-    const wakeRestartDelay = webKitish ? 220 : 100;
 
     try {
         // Main conversation recognition
@@ -987,7 +881,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
 
         recognition.onstart = () => {
           console.log('JARVIS: Recognition started');
-          mainRecPendingRef.current = false;
           mainRecActiveRef.current = true;
           setIsListening(true);
           setStatusText('Listening...');
@@ -995,16 +888,13 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
 
         recognition.onend = () => {
           console.log('JARVIS: Recognition ended');
-          mainRecPendingRef.current = false;
           mainRecActiveRef.current = false;
           setIsListening(false);
-          scheduleWakeResumeRef.current(320);
         };
 
         recognition.onerror = (event: any) => {
           const err = event.error as string;
           console.error('JARVIS: Recognition error:', err);
-          mainRecPendingRef.current = false;
           mainRecActiveRef.current = false;
           setIsListening(false);
 
@@ -1039,86 +929,11 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
         };
 
         recognitionRef.current = recognition;
-
-        // Wake word recognition — continuous mode breaks on Safari/iOS; use short sessions + onend restart
-        const wakeWordRec = new SpeechRecognition();
-        wakeWordRec.continuous = !webKitish;
-        wakeWordRec.interimResults = false;
-        wakeWordRec.lang = 'en-US';
-        wakeWordRec.maxAlternatives = webKitish ? 1 : 3;
-
-        wakeWordRec.onresult = (event: any) => {
-          const results = event.results;
-          const transcript = results[results.length - 1][0].transcript.toLowerCase();
-          console.log('JARVIS: Wake word check:', transcript);
-          
-          // Improved wake word detection with higher sensitivity and movie-like triggers
-          const triggers = [
-            'jarvis', 'travis', 'service', 'driver', 'java', 'harvis', 
-            'hey jarvis', 'hi jarvis', 'wake up jarvis', 'hello jarvis',
-            'ok jarvis', 'okay jarvis', 'are you there jarvis'
-          ];
-          const detected = triggers.some(trigger => transcript.includes(trigger));
-
-          if (!detected) return;
-          if (mainRecActiveRef.current) return;
-          const now = Date.now();
-          if (now - lastWakeTriggerAtRef.current < 1600) return;
-          lastWakeTriggerAtRef.current = now;
-          console.log('JARVIS: Wake word detected:', transcript);
-          handleWakeWordDetectedRef.current();
-        };
-
-        wakeWordRec.onerror = (event: any) => {
-          const err = event.error as string;
-          if (err !== 'no-speech' && err !== 'aborted') {
-            console.error('JARVIS: Wake word error:', err);
-          }
-          if (!wakeWordEnabledRef.current) return;
-          if (err === 'no-speech' || err === 'aborted') {
-            return;
-          }
-          if (err === 'not-allowed' || err === 'service-not-allowed') {
-            if (micReadyRef.current) {
-              setStatusText('Mic Blocked');
-            }
-            return;
-          }
-          if (err === 'audio-capture') {
-            setStatusText('No Microphone');
-            return;
-          }
-          setTimeout(() => {
-            if (!voiceToTextSupportedRef.current || !wakeWordEnabledRef.current || !micReadyRef.current) return;
-            if (isOpenRef.current || mainRecPendingRef.current) return;
-            if (mainRecActiveRef.current || isListeningRef.current || processingMessageRef.current) return;
-            startWakeWordListeningRef.current();
-          }, 500);
-        };
-
-        wakeWordRec.onend = () => {
-          if (!voiceToTextSupportedRef.current || !wakeWordEnabledRef.current || !micReadyRef.current) return;
-          if (isOpenRef.current || mainRecPendingRef.current) return;
-          if (
-            mainRecActiveRef.current ||
-            isSpeakingRef.current ||
-            isListeningRef.current ||
-            processingMessageRef.current
-          ) {
-            return;
-          }
-          window.setTimeout(() => startWakeWordListeningRef.current(), wakeRestartDelay);
-        };
-
-        wakeWordRecognitionRef.current = wakeWordRec;
     } catch (e) {
       console.error('Speech recognition setup failed:', e);
     }
 
     return () => {
-      if (wakeWordRecognitionRef.current) {
-        try { wakeWordRecognitionRef.current.stop(); } catch {}
-      }
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch {}
       }
@@ -1157,8 +972,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       const gestureHint =
         ' To use your voice, tap the microphone once—browsers only turn on the mic after you interact.';
       const greeting = isOwner
-        ? `Hey — I'm Quinton, your site assistant. Want to know about my creator? That's you — or we can prep anything for visitors. Chat here, tap the mic to talk, or enable hands-free "Jarvis" in settings.${gestureHint}`
-        : `Hi — I'm Quinton. Want to know about my creator, Quinton Ndlovu? Type or tap the mic to talk. Optional: turn on hands-free "Jarvis" in settings when the panel is closed.${gestureHint}`;
+        ? `Hey — I'm Quinton, your site assistant. Want to know about my creator? That's you — or we can prep anything for visitors. Chat here or tap the mic to talk.${gestureHint}`
+        : `Hi — I'm Quinton. Want to know about my creator, Quinton Ndlovu? Type a message or tap the mic to speak.${gestureHint}`;
 
       const prior = loadConversation();
       if (prior.length === 0) {
@@ -1176,32 +991,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteReady]);
-
-  // Toggle wake word (optional always-on “Jarvis” listening — default off)
-  const toggleWakeWord = () => {
-    if (!voiceToTextSupported) {
-      showToast('Hands-free “Jarvis” needs Chrome, Microsoft Edge, or Safari — not Firefox yet.');
-      return;
-    }
-    const newState = !wakeWordEnabled;
-    setWakeWordEnabled(newState);
-    try {
-      localStorage.setItem('quinton_wake_word', newState ? 'true' : 'false');
-    } catch {
-      /* ignore */
-    }
-    if (newState) {
-      setStatusText('Wake Word Active');
-      speak('Hands-free is on — say Jarvis anytime. Turn it off in settings to only use the mic button.');
-      if (micReady) {
-        window.setTimeout(() => startWakeWordListening(), 200);
-      }
-    } else {
-      stopWakeWordListening();
-      setStatusText('System Ready');
-      speak('Hands-free is off — tap the mic when you want to speak.');
-    }
-  };
 
   // Clear conversation
   const clearConversation = () => {
@@ -1279,9 +1068,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       micReadyRef.current = true;
       setMicReady(true);
       setStatusText('System Ready');
-      if (wakeWordEnabled) {
-        startWakeWordListening();
-      }
       void startAudioVisualizer();
       if (opts?.startListeningAfter) {
         setTimeout(() => startListening(), 380);
@@ -1315,15 +1101,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       streamRef.current = stream;
       micReadyRef.current = true;
       setMicReady(true);
-      speak(
-        wakeWordEnabled
-          ? "Mic on — I'm Quinton. Say Jarvis for hands-free, or tap the mic to talk."
-          : "Mic on — I'm Quinton. Tap the mic when you want to speak."
-      );
+      speak("Mic on — I'm Quinton. Tap the mic when you want to speak.");
       setStatusText('System Ready');
-      if (wakeWordEnabled) {
-        startWakeWordListening();
-      }
       void startAudioVisualizer();
       if (opts?.startListeningAfter) {
         setTimeout(() => startListening(), 380);
@@ -1356,15 +1135,14 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
   };
 
   useEffect(() => {
-    const wantVisualizer =
-      micReady && (wakeWordEnabled || (isOpen && (isListening || isSpeaking)));
+    const wantVisualizer = micReady && isOpen && (isListening || isSpeaking);
     if (wantVisualizer) {
       startAudioVisualizer();
     } else {
       stopAudioVisualizer();
     }
     return () => stopAudioVisualizer();
-  }, [isOpen, isListening, isSpeaking, wakeWordEnabled, micReady, startAudioVisualizer, stopAudioVisualizer]);
+  }, [isOpen, isListening, isSpeaking, micReady, startAudioVisualizer, stopAudioVisualizer]);
 
   const micNeedsHelp = ['Mic Blocked', 'Mic Error', 'No Microphone', 'Mic In Use'].includes(statusText);
 
@@ -1384,14 +1162,10 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
                 : isSpeaking
                   ? 'Speaking…'
                   : statusText === 'System Ready'
-                    ? voiceToTextSupported && wakeWordEnabled
-                      ? 'Ready — type, tap the mic, or say Jarvis (hands-free on)'
-                      : 'Ready — type or tap the mic to speak'
+                    ? 'Ready — type or tap the mic to speak'
                     : statusText;
 
   const needsMicTap = voiceToTextSupported && !micReady && !micNeedsHelp;
-
-  const dockActive = voiceToTextSupported && wakeWordEnabled && micReady && !isSpeaking;
 
   return (
     <>
@@ -1424,16 +1198,16 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
               className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5 text-left transition hover:bg-[#F5F5F7]"
               aria-label="Open assistant chat"
             >
-              <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#1D1D1F] text-white shadow-lg shadow-black/10">
+              <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/25">
                 <span
-                  className={`absolute inset-0 rounded-2xl ${dockActive ? 'animate-pulse bg-white/10' : ''}`}
+                  className={`absolute inset-0 rounded-2xl ${isListening ? 'animate-pulse bg-white/15' : ''}`}
                   aria-hidden
                 />
                 {renderIcon(FaMicrophone, 18)}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-bold tracking-tight text-[#1D1D1F]">
-                  Quinton
+                  AI Chat
                 </span>
                 <span className="mt-0.5 block truncate text-xs text-gray-500">
                   {isSpeaking
@@ -1442,11 +1216,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
                       ? 'Listening…'
                       : !voiceToTextSupported
                         ? 'Voice typing: use Chrome, Edge, or Safari — chat works in any browser'
-                        : dockActive
-                        ? 'Hands-free on — say Jarvis, or open chat and tap the mic'
-                        : wakeWordEnabled
-                          ? 'Tap the mic once, then talk or say Jarvis'
-                          : 'Tap the mic to speak — hands-free off (enable in chat settings)'}
+                        : 'Tap the mic to speak — push-to-talk'}
                 </span>
               </span>
               <span className="self-center pr-2 text-gray-400">{renderIcon(FaChevronUp, 14)}</span>
@@ -1481,34 +1251,34 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
 
       {isOpen && (
         <div className="fixed inset-0 z-[100] pointer-events-none font-sans antialiased">
+          <p className="pointer-events-none absolute left-0 right-0 top-6 z-[101] text-center text-sm font-semibold text-sky-500">
+            AI Chat
+          </p>
           <div
-            className="absolute inset-0 bg-[#1D1D1F]/40 backdrop-blur-sm pointer-events-auto transition-opacity"
+            className="absolute inset-0 bg-[#1D1D1F]/25 backdrop-blur-[2px] pointer-events-auto transition-opacity"
             onClick={() => setIsOpen(false)}
             aria-hidden
           />
 
           <div
-            className="absolute bottom-4 left-4 right-4 top-auto flex max-h-[min(90vh,720px)] min-h-[420px] flex-col overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-2xl shadow-gray-300/60 sm:left-auto sm:right-6 sm:w-[420px] pointer-events-auto"
+            className="absolute bottom-4 left-4 right-4 top-auto flex max-h-[min(90vh,720px)] min-h-[380px] flex-col overflow-hidden rounded-[1.75rem] border border-gray-100/80 bg-white shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] sm:bottom-8 sm:left-1/2 sm:right-auto sm:w-full sm:max-w-md sm:-translate-x-1/2 pointer-events-auto"
             role="dialog"
             aria-labelledby="assistant-title"
             aria-describedby="assistant-subtitle"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative flex shrink-0 flex-col gap-0.5 border-b border-gray-100 bg-white px-5 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-gray-500">Chat</p>
+            <div className="relative flex shrink-0 flex-col gap-0.5 border-b border-gray-100/90 bg-white px-5 py-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h2 id="assistant-title" className="truncate text-lg font-bold tracking-tight text-[#1D1D1F]">
-                      Quinton
+                    <h2 id="assistant-title" className="truncate text-base font-bold tracking-tight text-[#1D1D1F]">
+                      Ask Quinton
                     </h2>
                     <span
-                      className={`inline-flex h-2 w-2 shrink-0 rounded-full ring-4 ring-white ${voiceToTextSupported && wakeWordEnabled && micReady ? 'bg-emerald-500 animate-pulse' : isJarvisOnline ? 'bg-emerald-500' : 'bg-amber-400'}`}
+                      className={`inline-flex h-2 w-2 shrink-0 rounded-full ring-4 ring-white ${voiceToTextSupported && micReady ? 'bg-emerald-500' : isJarvisOnline ? 'bg-emerald-500' : 'bg-amber-400'}`}
                       title={
                         voiceToTextSupported && micReady
-                          ? wakeWordEnabled
-                            ? 'Hands-free listening'
-                            : 'Mic ready'
+                          ? 'Mic ready — tap to speak'
                           : isJarvisOnline
                             ? 'Local knowledge API online'
                             : 'Browser-only mode'
@@ -1543,26 +1313,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
                 <div className="absolute right-3 top-[52px] z-10 w-[min(calc(100vw-2rem),280px)] rounded-xl border border-black/5 bg-white p-4 shadow-xl">
                   <p className="mb-3 text-xs font-medium text-neutral-900">Settings</p>
                   <div className="space-y-4">
-                    <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-neutral-600">Hands-free &quot;Jarvis&quot;</span>
-                      <button
-                        type="button"
-                        onClick={toggleWakeWord}
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${wakeWordEnabled ? 'bg-black' : 'bg-neutral-200'}`}
-                        aria-pressed={wakeWordEnabled}
-                      >
-                        <span
-                          className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${wakeWordEnabled ? 'translate-x-5' : 'translate-x-0'}`}
-                        />
-                      </button>
-                    </div>
-                      <p className="text-[10px] text-neutral-500">
-                        {voiceToTextSupported
-                          ? 'Off by default — when on, listens for “Jarvis” in the background. Otherwise tap the mic to talk.'
-                          : 'Unavailable — browser has no speech recognition API.'}
-                      </p>
-                    </div>
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs text-neutral-600">Spoken replies</span>
                       <button
@@ -1590,7 +1340,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
               <div className="border-b border-sky-100 bg-sky-50/95 px-4 py-2.5">
                 <p className="text-[11px] leading-snug text-sky-950">
                   <span className="font-semibold">Browser note: </span>
-                  Firefox and some browsers do not ship speech-to-text. For voice (mic + “Jarvis”), use{' '}
+                  Firefox and some browsers do not ship speech-to-text. For voice, use{' '}
                   <strong>Chrome</strong>, <strong>Edge</strong>, or <strong>Safari</strong>. You can still use
                   this chat and read-aloud everywhere.
                 </p>
@@ -1609,7 +1359,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
             {needsMicTap && (
               <div className="border-b border-emerald-200/90 bg-gradient-to-r from-emerald-50/95 to-cyan-50/80 px-4 py-3">
                 <p className="text-xs font-medium text-emerald-950">
-                  Turn on voice (wake word & spoken replies). Your browser only allows the mic after you tap.
+                  Turn on the microphone. Your browser only allows the mic after you tap.
                 </p>
                 <button
                   type="button"
@@ -1640,8 +1390,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
               <div className="min-h-[200px] flex-1 overflow-y-auto px-4 py-4">
                 <div className="mx-auto max-w-full space-y-4">
                   {messages.length === 0 && !isThinking && (
-                    <p className="rounded-2xl border border-dashed border-gray-200 bg-white/80 px-4 py-6 text-center text-sm text-gray-500">
-                      Start a conversation — ask about my creator or projects. Tap the <span className="font-semibold text-[#1D1D1F]">mic</span> to speak; enable hands-free &quot;Jarvis&quot; in settings if you want.
+                    <p className="rounded-2xl border border-dashed border-gray-200 bg-white/90 px-4 py-6 text-center text-sm text-gray-500">
+                      Start a conversation — ask about Quinton, projects, or contact. Tap the <span className="font-semibold text-sky-600">mic</span> in the bar below to speak.
                     </p>
                   )}
                   {messages.map((m) => (
@@ -1651,18 +1401,18 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
                     >
                       {!m.isUser && (
                         <div
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1D1D1F] text-[11px] font-bold text-white shadow-md shadow-black/10"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-blue-600 text-[11px] font-bold text-white shadow-md shadow-sky-500/30"
                           aria-hidden
                         >
                           Q
                         </div>
                       )}
-                      <div className={`max-w-[min(100%,280px)] space-y-1 ${m.isUser ? 'items-end' : 'items-start'}`}>
+                      <div className={`max-w-[min(100%,300px)] space-y-1 ${m.isUser ? 'items-end' : 'items-start'}`}>
                         <div
                           className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                             m.isUser
-                              ? 'rounded-tr-sm bg-[#1D1D1F] text-white shadow-lg shadow-black/15'
-                              : 'rounded-tl-sm border border-gray-100 bg-white text-[#1D1D1F] shadow-sm'
+                              ? 'rounded-tr-md bg-sky-100 text-sky-950 shadow-sm'
+                              : 'rounded-tl-md bg-gray-100 text-gray-900'
                           }`}
                         >
                           {m.text}
@@ -1675,7 +1425,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
                       </div>
                       {m.isUser && (
                         <div
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[10px] font-bold text-[#1D1D1F]"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-200/80 text-[10px] font-bold text-sky-900"
                           aria-hidden
                         >
                           You
@@ -1686,12 +1436,12 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
                   {isThinking && (
                     <div className="flex gap-2.5">
                       <div
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1D1D1F] text-[11px] font-bold text-white"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-blue-600 text-[11px] font-bold text-white shadow-md"
                         aria-hidden
                       >
                         Q
                       </div>
-                      <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm border border-gray-100 bg-white px-4 py-3.5 shadow-sm">
+                      <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-md bg-gray-100 px-4 py-3.5">
                         <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:0ms]" />
                         <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:150ms]" />
                         <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:300ms]" />
@@ -1702,50 +1452,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 border-t border-gray-100 bg-white px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!micReady || micNeedsHelp) {
-                      void requestMicPermission({ startListeningAfter: voiceToTextSupported });
-                      return;
-                    }
-                    toggleListening();
-                  }}
-                  className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition ${
-                    isListening
-                      ? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
-                      : needsMicTap || micNeedsHelp
-                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700'
-                        : 'bg-[#1D1D1F] text-white shadow-md shadow-black/15 hover:bg-black'
-                  }`}
-                  aria-pressed={isListening}
-                  aria-label={
-                    !micReady || micNeedsHelp ? 'Enable microphone' : isListening ? 'Stop listening' : 'Start listening'
-                  }
-                >
-                  {(isListening || isSpeaking) && (
-                    <span
-                      className="absolute inset-0 rounded-2xl opacity-25"
-                      style={{
-                        transform: `scale(${1 + audioLevel / 400})`,
-                        background: isListening ? 'currentColor' : 'transparent',
-                      }}
-                    />
-                  )}
-                  <span className="relative z-[1] text-base leading-none text-current">{renderIcon(FaMicrophone, 16)}</span>
-                </button>
-                <p className="min-w-0 flex-1 text-xs leading-snug text-gray-500">
-                  {micNeedsHelp
-                    ? 'Allow the mic in the browser, or type your message below.'
-                    : needsMicTap
-                      ? 'Tap the green mic so the browser can hear you.'
-                      : isListening
-                        ? 'Listening… you can also type.'
-                        : 'Voice or type — your message goes below.'}
-                </p>
-              </div>
-
               <div className="shrink-0 space-y-3 border-t border-gray-100 bg-white px-4 pb-4 pt-3">
                 <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {['About', 'Projects', 'Skills', 'Contact'].map((cmd) => (
@@ -1753,7 +1459,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
                       key={cmd}
                       type="button"
                       onClick={() => handleUserMessage(`Open ${cmd}`)}
-                      className="shrink-0 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-[#1D1D1F] transition hover:border-black hover:bg-[#F5F5F7]"
+                      className="shrink-0 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-[#1D1D1F] transition hover:border-sky-300 hover:bg-sky-50"
                     >
                       {cmd}
                     </button>
@@ -1768,23 +1474,71 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
                       (e.currentTarget.elements.namedItem('hud-input') as HTMLInputElement).value = '';
                     }
                   }}
-                  className="flex gap-2"
+                  className="flex items-center gap-2"
                 >
-                  <input
-                    ref={inputRef}
-                    name="hud-input"
-                    type="text"
-                    autoComplete="off"
-                    placeholder="Message Quinton…"
-                    className="min-w-0 flex-1 rounded-2xl border-2 border-transparent bg-[#F5F5F7] px-5 py-3.5 text-sm font-medium text-[#1D1D1F] placeholder:text-gray-400 transition focus:border-black focus:bg-white focus:outline-none"
-                  />
+                  <div className="relative min-w-0 flex-1">
+                    <input
+                      ref={inputRef}
+                      name="hud-input"
+                      type="text"
+                      autoComplete="off"
+                      placeholder="How else can I help?"
+                      className="w-full rounded-full border border-gray-200 bg-gray-50 py-3 pl-4 pr-14 text-sm font-medium text-[#1D1D1F] placeholder:text-gray-400 transition focus:border-sky-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!micReady || micNeedsHelp) {
+                          void requestMicPermission({ startListeningAfter: voiceToTextSupported });
+                          return;
+                        }
+                        toggleListening();
+                      }}
+                      className={`absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full transition ${
+                        isListening
+                          ? 'bg-red-500 text-white shadow-md'
+                          : needsMicTap || micNeedsHelp
+                            ? 'bg-emerald-500 text-white shadow-md hover:bg-emerald-600'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                      aria-pressed={isListening}
+                      aria-label={
+                        !micReady || micNeedsHelp ? 'Enable microphone' : isListening ? 'Stop listening' : 'Start listening'
+                      }
+                    >
+                      {(isListening || isSpeaking) && (
+                        <span
+                          className="absolute inset-0 rounded-full opacity-30"
+                          style={{
+                            transform: `scale(${1 + audioLevel / 400})`,
+                            background: isListening ? 'currentColor' : 'transparent',
+                          }}
+                        />
+                      )}
+                      <span className="relative z-[1] text-sm leading-none">{renderIcon(FaMicrophone, 14)}</span>
+                    </button>
+                  </div>
                   <button
                     type="submit"
-                    className="shrink-0 rounded-2xl bg-black px-5 py-3.5 text-sm font-bold text-white transition hover:bg-gray-800"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-500 text-white shadow-md shadow-sky-500/25 transition hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                    aria-label="Send message"
                   >
-                    Send
+                    {renderIcon(FaArrowUp, 18)}
                   </button>
                 </form>
+                <div className="flex flex-col items-center gap-2 pt-1">
+                  <p className="text-center text-[11px] text-gray-400">Chat-based AI on Quinton&apos;s portfolio.</p>
+                  <a
+                    href={KNOWLEDGE_BASE.personal.whatsappChatUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#25D366] text-white shadow-md shadow-green-600/20 transition hover:scale-105 hover:bg-[#20bd5a]"
+                    aria-label="Message Quinton on WhatsApp"
+                    title="WhatsApp"
+                  >
+                    {renderIcon(FaWhatsapp, 22)}
+                  </a>
+                </div>
               </div>
             </div>
           </div>

@@ -29,6 +29,7 @@ KNOWLEDGE_BASE = {
         "email": "quintonndlovu161@gmail.com",
         "phone": "+263 785385293",
         "whatsapp": "+263 785385293",
+        "whatsapp_chat_url": "https://wa.me/263785385293",
         "linkedin": "https://www.linkedin.com/in/quinton-ndlovu-40b559341/",
         "github": "https://github.com/quinton-dev",
         "portfolio": "https://portifoliolime-dz.vercel.app/",
@@ -261,8 +262,11 @@ def compose_local_answer(message: str, user_status: str) -> Tuple[str, str]:
 
     if any(x in low for x in ("contact", "email", "reach", "phone", "whatsapp", "hire", "collab")):
         gh = p.get("github", "")
+        wa = p.get("whatsapp_chat_url", "")
+        wa_bit = f" WhatsApp chat: {wa}." if wa else ""
         return (
-            f"Reach Quinton: {p['email']}, phone/WhatsApp {p['phone']}, "
+            f"Reach Quinton: {p['email']}, phone {p['phone']} (same number on WhatsApp)."
+            f"{wa_bit} "
             f"LinkedIn {p['linkedin']}, GitHub {gh}. Portfolio: {p['portfolio']}.",
             "local",
         )
