@@ -2,17 +2,20 @@ import React, { useRef, useState } from "react";
 import Header from './components/Header';
 import AboutMe from './components/AboutMe';
 import WhatIDo from './components/WhatIDo';
+import SoftwareServices from './components/SoftwareServices';
 import Portfolio from './components/Portfolio';
 import Resume from './components/Resume';
 import Contact from './components/Contact';
 import SplashScreen from './components/SplashScreen';
 import VoiceAssistant from './components/VoiceAssistant';
+import Footer from './components/Footer';
 
 const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState(true);
   const aboutRef = useRef<HTMLDivElement>(null);
   const portfolioRef = useRef<HTMLDivElement>(null);
   const servicesRef = useRef<HTMLDivElement>(null);
+  const softwareItRef = useRef<HTMLDivElement>(null);
   const resumeRef = useRef<HTMLDivElement>(null);
   const contactRef = useRef<HTMLDivElement>(null);
 
@@ -31,6 +34,7 @@ const App: React.FC = () => {
           onScrollToAbout={() => scrollToSection(aboutRef)}
           onScrollToPortfolio={() => scrollToSection(portfolioRef)}
           onScrollToServices={() => scrollToSection(servicesRef)}
+          onScrollToSoftwareIt={() => scrollToSection(softwareItRef)}
           onScrollToResume={() => scrollToSection(resumeRef)}
           onScrollToContact={() => scrollToSection(contactRef)}
         />
@@ -41,6 +45,9 @@ const App: React.FC = () => {
           </div>
           <div ref={servicesRef} id="services">
             <WhatIDo />
+          </div>
+          <div ref={softwareItRef} id="software-it-wrap">
+            <SoftwareServices />
           </div>
           <div ref={portfolioRef} id="projects">
             <Portfolio />
@@ -53,16 +60,14 @@ const App: React.FC = () => {
           </div>
         </main>
 
-        <footer className="bg-white py-8 sm:py-12 px-4 sm:px-8 border-t border-gray-100">
-          <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-6 md:gap-8 text-center md:text-left">
-            <div className="font-bold text-lg sm:text-xl tracking-tighter text-black">Quinton</div>
-            <p className="text-gray-500 text-xs sm:text-sm order-last md:order-none">© 2026 Quinton Ndlovu. All rights reserved.</p>
-            <div className="flex flex-wrap justify-center gap-4 sm:gap-8 text-xs sm:text-sm font-medium text-gray-500">
-              <span className="hover:text-black transition-colors cursor-pointer">Privacy Policy</span>
-              <span className="hover:text-black transition-colors cursor-pointer">Terms of Service</span>
-            </div>
-          </div>
-        </footer>
+        <Footer
+          onScrollToAbout={() => scrollToSection(aboutRef)}
+          onScrollToPortfolio={() => scrollToSection(portfolioRef)}
+          onScrollToServices={() => scrollToSection(servicesRef)}
+          onScrollToSoftwareIt={() => scrollToSection(softwareItRef)}
+          onScrollToResume={() => scrollToSection(resumeRef)}
+          onScrollToContact={() => scrollToSection(contactRef)}
+        />
         <VoiceAssistant siteReady={!showSplash} />
       </div>
     </>

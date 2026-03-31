@@ -1,39 +1,77 @@
-import React from 'react';
-import styled, { keyframes, css } from 'styled-components';
+import React, { useState } from 'react';
 
-const geometricPulse = keyframes`
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(99, 102, 241, 0.3)); }
-  50% { transform: scale(1.05); filter: drop-shadow(0 0 15px rgba(99, 102, 241, 0.6)); }
-`;
+/** File in `public/images` — keep filename in sync with your asset */
+export const QUINTON_LOGO_FILE = 'Quinton logo.png';
 
-const LogoContainer = styled.div<{ size: string; animated: boolean }>`
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  width: ${({ size }) => size === 'small' ? '40px' : size === 'large' ? '80px' : '60px'};
-  height: ${({ size }) => size === 'small' ? '40px' : size === 'large' ? '80px' : '60px'};
-  ${({ animated }) => animated && css`animation: ${geometricPulse} 4s ease-in-out infinite;`}
-  &:hover { transform: scale(1.05) translateY(-2px); }
-  &:active { transform: scale(1.02) translateY(-1px); }
-`;
-
-interface QuintonLogoProps {
-  size?: 'small' | 'medium' | 'large';
-  animated?: boolean;
-  className?: string;
+export function quintonLogoUrl(): string {
+  const base = process.env.PUBLIC_URL || '';
+  return `${base}/images/${encodeURIComponent(QUINTON_LOGO_FILE)}`;
 }
 
-const QuintonLogo: React.FC<QuintonLogoProps> = ({ size = 'medium', animated = true, className }) => (
-  <LogoContainer size={size} animated={animated} className={className}>
-    <svg width="100%" height="100%" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="60" cy="60" r="50" fill="#6366f1" fillOpacity="0.12" />
-      <ellipse cx="60" cy="60" rx="40" ry="48" fill="#fff" fillOpacity="0.18" />
-      <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontFamily="Inter, Arial, sans-serif" fontWeight="bold" fontSize="32" fill="#6366f1" opacity="0.85">Q</text>
-    </svg>
-  </LogoContainer>
-);
+interface QuintonLogoProps {
+  className?: string;
+  /** Where the logo sits — fixes layout: big image inside a fixed box */
+  variant?: 'header' | 'footer';
+  /** Override image classes (usually leave default for variant) */
+  imgClassName?: string;
+  /** When the image fails to load (wrong path or missing file), show this text */
+  fallbackClassName?: string;
+}
+
+const containerByVariant: Record<NonNullable<QuintonLogoProps['variant']>, string> = {
+  header:
+    'inline-flex h-[5.25rem] w-[min(92vw,22rem)] sm:h-24 sm:w-[24rem] md:h-28 md:w-[26rem] max-w-full shrink-0 items-center justify-start overflow-hidden rounded-xl',
+  footer:
+    'inline-flex h-28 w-full max-w-[min(100%,26rem)] sm:h-32 md:h-36 items-center justify-start overflow-hidden rounded-xl',
+};
+
+/**
+ * Site wordmark from `public/images/Quinton logo.png`.
+ * Uses a fixed container so a large logo does not push header/footer layout around.
+ */
+const QuintonLogo: React.FC<QuintonLogoProps> = ({
+  className = '',
+  variant = 'header',
+  imgClassName,
+  fallbackClassName,
+}) => {
+  const [failed, setFailed] = useState(false);
+
+  const imgClasses =
+    imgClassName ??
+    'h-full w-full max-h-full max-w-full object-contain object-left [image-rendering:auto]';
+
+  const fallback =
+    fallbackClassName ??
+    (variant === 'footer'
+      ? 'text-3xl sm:text-4xl md:text-5xl font-bold tracking-tighter text-white'
+      : 'text-3xl sm:text-4xl md:text-5xl font-bold tracking-tighter text-[#1D1D1F]');
+
+  if (failed) {
+    return (
+      <span
+        className={`inline-flex min-h-[3rem] items-center font-sans ${containerByVariant[variant]} ${fallback} ${className}`}
+        aria-hidden={false}
+      >
+        Quinton
+      </span>
+    );
+  }
+
+  return (
+    <span className={`${containerByVariant[variant]} ${className}`}>
+      <img
+        src={quintonLogoUrl()}
+        alt="Quinton"
+        className={imgClasses}
+        width={520}
+        height={120}
+        loading="eager"
+        decoding="async"
+        onError={() => setFailed(true)}
+      />
+    </span>
+  );
+};
 
 export default QuintonLogo;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { FaTimes, FaVolumeMute, FaVolumeUp, FaCog, FaMicrophone, FaChevronUp, FaArrowUp, FaWhatsapp } from 'react-icons/fa';
+import { FaTimes, FaVolumeMute, FaVolumeUp, FaCog, FaMicrophone, FaArrowUp, FaWhatsapp } from 'react-icons/fa';
 import OpenAI from 'openai';
 
 /**
@@ -15,13 +15,25 @@ function getAssistantApiBase(): string {
   return '';
 }
 
-// OpenAI Configuration
-const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY || "";
-const OPENAI_CHAT_MODEL = process.env.REACT_APP_OPENAI_MODEL || 'gpt-4o-mini';
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true // Required for client-side integration
-});
+// OpenAI in the browser is optional and exposes the key in the bundle — prefer the FastAPI backend + OPENAI_API_KEY on the server.
+function normalizeEnvKey(raw: string | undefined): string {
+  return (raw ?? "")
+    .trim()
+    .replace(/^['"]+|['"]+$/g, "")
+    .replace(/^[;:\s]+|[;:\s]+$/g, "");
+}
+
+const OPENAI_API_KEY = normalizeEnvKey(process.env.REACT_APP_OPENAI_API_KEY);
+const OPENAI_CHAT_MODEL = normalizeEnvKey(process.env.REACT_APP_OPENAI_MODEL) || "gpt-4o-mini";
+
+let browserOpenAI: OpenAI | null = null;
+function getBrowserOpenAI(): OpenAI | null {
+  if (!OPENAI_API_KEY) return null;
+  if (!browserOpenAI) {
+    browserOpenAI = new OpenAI({ apiKey: OPENAI_API_KEY, dangerouslyAllowBrowser: true });
+  }
+  return browserOpenAI;
+}
 
 // ============================================
 // COMPREHENSIVE KNOWLEDGE BASE ABOUT QUINTON
@@ -73,9 +85,13 @@ const KNOWLEDGE_BASE = {
   
   services: [
     { title: "Full Stack Web Development", description: "End-to-end development of scalable web applications using the latest tech stacks." },
-    { title: "UI/UX Design & Implementation", description: "Creating beautiful, user-centric interfaces that provide exceptional digital experiences." },
+    {
+      title: "Software & IT Support",
+      description:
+        "Windows and software setup, troubleshooting, optimization, remote support, office tools, updates, and maintenance for businesses and individuals.",
+    },
     { title: "Task Automation & Workflows", description: "Integrating systems like n8n to automate complex business processes and increase efficiency." },
-    { title: "Technical Consulting", description: "Helping organizations choose the right technology and architectural path for their digital products." }
+    { title: "Technical Consulting", description: "Helping organizations choose the right technology and architectural path for their digital products." },
   ],
   
   achievements: [
@@ -277,7 +293,12 @@ ${dossier}`;
       { role: "user", content: input }
     ];
 
-    const response = await openai.chat.completions.create({
+    const client = getBrowserOpenAI();
+    if (!client) {
+      return jarvisOfflineKeywordFallback(lowerInput);
+    }
+
+    const response = await client.chat.completions.create({
       model: OPENAI_CHAT_MODEL,
       messages: messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       max_tokens: 900,
@@ -290,31 +311,35 @@ ${dossier}`;
     );
   } catch (error) {
     console.error("OpenAI Error:", error);
-    
-    if (lowerInput.includes('hello') || lowerInput.includes('hi')) {
-      return `Hi — I’m Quinton, the assistant on this site. Want to know about my creator, Quinton Ndlovu? I can walk you through his projects, skills, and how to reach him — what would you like?`;
-    }
-    if (lowerInput.includes('quinton') || lowerInput.includes('who are you') || lowerInput.includes('who is he')) {
-      return `${KNOWLEDGE_BASE.personal.name} is a ${KNOWLEDGE_BASE.personal.title} in ${KNOWLEDGE_BASE.personal.location}. ${KNOWLEDGE_BASE.personal.bio} ${KNOWLEDGE_BASE.personal.tagline}`;
-    }
-    if (
-      lowerInput.includes('contact') ||
-      lowerInput.includes('email') ||
-      lowerInput.includes('reach') ||
-      lowerInput.includes('whatsapp') ||
-      lowerInput.includes('phone') ||
-      lowerInput.includes('message him')
-    ) {
-      const p = KNOWLEDGE_BASE.personal;
-      return `You can reach Quinton by email at ${p.email}, phone ${p.phone}, or WhatsApp the same number — ${p.whatsappChatUrl}`;
-    }
-    if (lowerInput.includes('skill') || lowerInput.includes('tech') || lowerInput.includes('stack')) {
-      return `Quinton ships with ${KNOWLEDGE_BASE.skills.frontend.slice(0, 4).join(', ')}, and more — plus backend like ${KNOWLEDGE_BASE.skills.backend.slice(0, 4).join(', ')}. Want the full list or project examples?`;
-    }
 
-    return "I’m offline from the cloud model right now, but I still know Quinton’s story from local data — try “projects”, “contact”, or “skills”.";
+    return jarvisOfflineKeywordFallback(lowerInput);
   }
 };
+
+function jarvisOfflineKeywordFallback(lowerInput: string): string {
+  if (lowerInput.includes('hello') || lowerInput.includes('hi')) {
+    return `Hi — I’m Quinton, the assistant on this site. Want to know about my creator, Quinton Ndlovu? I can walk you through his projects, skills, and how to reach him — what would you like?`;
+  }
+  if (lowerInput.includes('quinton') || lowerInput.includes('who are you') || lowerInput.includes('who is he')) {
+    return `${KNOWLEDGE_BASE.personal.name} is a ${KNOWLEDGE_BASE.personal.title} in ${KNOWLEDGE_BASE.personal.location}. ${KNOWLEDGE_BASE.personal.bio} ${KNOWLEDGE_BASE.personal.tagline}`;
+  }
+  if (
+    lowerInput.includes('contact') ||
+    lowerInput.includes('email') ||
+    lowerInput.includes('reach') ||
+    lowerInput.includes('whatsapp') ||
+    lowerInput.includes('phone') ||
+    lowerInput.includes('message him')
+  ) {
+    const p = KNOWLEDGE_BASE.personal;
+    return `You can reach Quinton by email at ${p.email}, phone ${p.phone}, or WhatsApp the same number — ${p.whatsappChatUrl}`;
+  }
+  if (lowerInput.includes('skill') || lowerInput.includes('tech') || lowerInput.includes('stack')) {
+    return `Quinton ships with ${KNOWLEDGE_BASE.skills.frontend.slice(0, 4).join(', ')}, and more — plus backend like ${KNOWLEDGE_BASE.skills.backend.slice(0, 4).join(', ')}. Want the full list or project examples?`;
+  }
+
+  return "I’m offline from the cloud model right now, but I still know Quinton’s story from local data — try “projects”, “contact”, or “skills”.";
+}
 
 // ============================================
 // MAIN COMPONENT
@@ -534,6 +559,25 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
 
     const isOwner = localStorage.getItem('jarvis_owner') === 'true';
 
+    const lowerTrim = text.toLowerCase().trim();
+    if (
+      lowerTrim === 'identify as master' ||
+      lowerTrim === 'i am the owner' ||
+      lowerTrim === 'master'
+    ) {
+      localStorage.setItem('jarvis_owner', 'true');
+      responseText =
+        "Got it — I’ll treat you as Quinton. I’m tuned to your portfolio data and ready when you are. What should we tackle?";
+    } else if (
+      lowerTrim === 'logout' ||
+      lowerTrim === 'clear identity' ||
+      lowerTrim === 'goodbye master'
+    ) {
+      localStorage.removeItem('jarvis_owner');
+      responseText =
+        "Okay — I’ll switch back to guest mode for everyone else. Thanks for stopping by.";
+    }
+
     // 1. Local Navigation & Control Commands first
     if (!responseText) {
       const processWebsiteCommand = (cmd: string): boolean => {
@@ -549,6 +593,10 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
           lowerCmd.includes('whatsapp') ||
           lowerCmd.includes('whats app');
         const isResume = lowerCmd.includes('resume') || lowerCmd.includes('cv') || lowerCmd.includes('experience');
+        const isSoftwareIt =
+          lowerCmd.includes('software') ||
+          lowerCmd.includes('it support') ||
+          lowerCmd.includes('computer support');
         const isHome = lowerCmd.includes('home') || lowerCmd.includes('top') || lowerCmd.includes('start');
         
         const isScroll = lowerCmd.includes('scroll to') || lowerCmd.includes('open') || lowerCmd.includes('show') || lowerCmd.includes('view') || lowerCmd.includes('go to');
@@ -616,6 +664,15 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
           }
         }
 
+        if (isSoftwareIt && isScroll) {
+          const el = document.getElementById('software-it');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth' });
+            speak("Opening Software and IT — packages, process, and FAQ.");
+            return true;
+          }
+        }
+
         if (lowerCmd.includes('scroll down')) {
           window.scrollBy({ top: window.innerHeight * 0.7, behavior: 'smooth' });
           speak("Scrolling down a bit.");
@@ -675,7 +732,16 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       }
     }
 
-    // 2. Optional FastAPI backend (localhost or REACT_APP_ASSISTANT_API_URL)
+    // 2. In-browser OpenAI when REACT_APP_OPENAI_API_KEY is set (before FastAPI so local :8000 does not shadow your key)
+    if (!responseText && OPENAI_API_KEY) {
+      try {
+        responseText = await generateJarvisResponse(text, messages);
+      } catch (e) {
+        console.error('JARVIS: OpenAI error:', e);
+      }
+    }
+
+    // 3. Optional FastAPI backend — when browser GPT did not answer
     if (!responseText && assistantApiBase) {
       try {
         const response = await fetch(`${assistantApiBase}/chat`, {
@@ -704,15 +770,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
         if (process.env.NODE_ENV === 'development') {
           console.info('[Quinton assistant] API /chat unreachable, using other paths.');
         }
-      }
-    }
-
-    // 3. OpenAI — optional when REACT_APP_OPENAI_API_KEY is set and backend did not answer
-    if (!responseText && OPENAI_API_KEY) {
-      try {
-        responseText = await generateJarvisResponse(text, messages);
-      } catch (e) {
-        console.error('JARVIS: OpenAI error:', e);
       }
     }
 
@@ -749,7 +806,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       } else {
         responseText = OPENAI_API_KEY
           ? "I'm afraid that didn't come through cleanly. Could you repeat your question?"
-          : "Start your local assistant API for richer answers: in a terminal run `cd jarvis-backend`, `pip install -r requirements.txt`, then `uvicorn main:app --reload --port 8000`. Or add REACT_APP_OPENAI_API_KEY in .env for cloud AI. I can still answer basics about Quinton’s projects, skills, and contact—what would you like?";
+          : "I can answer basics about Quinton’s projects, skills, and contact from this page. For full AI replies, run the FastAPI backend with OPENAI_API_KEY (see jarvis-backend/.env.example) and set REACT_APP_ASSISTANT_API_URL on your site, or add a dev-only REACT_APP_OPENAI_API_KEY. What would you like to know?";
       }
     }
 
@@ -1171,7 +1228,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
     <>
       {toast && !isOpen && (
         <div
-          className="fixed bottom-24 left-4 right-4 z-[95] mx-auto max-w-md sm:left-auto sm:right-6 sm:mx-0"
+          className="fixed bottom-[5.75rem] left-4 right-4 z-[95] mx-auto max-w-md sm:bottom-24 sm:left-auto sm:right-6 sm:mx-0"
           role="status"
         >
           <div className="rounded-[1.25rem] border border-gray-100 bg-white px-4 py-3 text-sm leading-snug text-[#1D1D1F] shadow-xl shadow-gray-200/50">
@@ -1184,68 +1241,48 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ siteReady = true }) => 
       )}
 
       {!isOpen && (
-        <div className="fixed bottom-6 left-4 right-4 z-50 flex justify-end sm:left-auto sm:right-6 sm:w-auto pointer-events-none">
-          <div className="pointer-events-auto flex w-full max-w-md items-stretch gap-0 overflow-hidden rounded-[1.25rem] border border-gray-100 bg-white shadow-xl shadow-gray-200/50 sm:max-w-sm">
-            <button
-              type="button"
-              onClick={() => {
-                if (autoMinimizeRef.current) {
-                  clearTimeout(autoMinimizeRef.current);
-                  autoMinimizeRef.current = null;
-                }
-                setIsOpen(true);
-              }}
-              className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5 text-left transition hover:bg-[#F5F5F7]"
-              aria-label="Open assistant chat"
-            >
-              <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/25">
-                <span
-                  className={`absolute inset-0 rounded-2xl ${isListening ? 'animate-pulse bg-white/15' : ''}`}
-                  aria-hidden
-                />
-                {renderIcon(FaMicrophone, 18)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold tracking-tight text-[#1D1D1F]">
-                  AI Chat
-                </span>
-                <span className="mt-0.5 block truncate text-xs text-gray-500">
-                  {isSpeaking
-                    ? 'Speaking…'
-                    : isListening
-                      ? 'Listening…'
-                      : !voiceToTextSupported
-                        ? 'Voice typing: use Chrome, Edge, or Safari — chat works in any browser'
-                        : 'Tap the mic to speak — push-to-talk'}
-                </span>
-              </span>
-              <span className="self-center pr-2 text-gray-400">{renderIcon(FaChevronUp, 14)}</span>
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (autoMinimizeRef.current) {
-                  clearTimeout(autoMinimizeRef.current);
-                  autoMinimizeRef.current = null;
-                }
-                setIsOpen(true);
-                void requestMicPermission({
-                  startListeningAfter: voiceToTextSupported,
-                });
-              }}
-              className={`flex w-14 shrink-0 items-center justify-center border-l border-gray-100 transition hover:bg-[#F5F5F7] ${isListening ? 'bg-red-500 text-white hover:bg-red-600': needsMicTap ? 'bg-emerald-500/15 text-emerald-800' : 'text-[#1D1D1F]'}`}
-              aria-label={
-                !voiceToTextSupported
-                  ? 'Microphone (optional)'
-                  : needsMicTap
-                    ? 'Enable microphone'
-                    : 'Start voice input'
+        <div className="pointer-events-none fixed bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))] right-[max(1rem,env(safe-area-inset-right,0px))] z-40 sm:bottom-8 sm:right-6">
+          <button
+            type="button"
+            onClick={() => {
+              if (autoMinimizeRef.current) {
+                clearTimeout(autoMinimizeRef.current);
+                autoMinimizeRef.current = null;
               }
-            >
-              {renderIcon(FaMicrophone, 18)}
-            </button>
-          </div>
+              setIsOpen(true);
+            }}
+            className={`pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 via-sky-500 to-blue-600 text-white shadow-[0_10px_40px_-8px_rgba(14,165,233,0.55)] ring-2 ring-white/70 transition duration-200 hover:scale-[1.06] hover:shadow-[0_14px_44px_-8px_rgba(14,165,233,0.6)] active:scale-[0.97] focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/40 ${
+              needsMicTap ? 'ring-emerald-300/90 shadow-emerald-500/20' : ''
+            } ${isListening ? 'ring-sky-200' : ''}`}
+            aria-label={
+              needsMicTap
+                ? 'Open AI assistant — enable the mic inside the panel'
+                : isListening
+                  ? 'Open AI assistant — listening'
+                  : isSpeaking
+                    ? 'Open AI assistant — speaking'
+                    : 'Open AI assistant'
+            }
+            title="AI assistant"
+          >
+            {(isListening || isSpeaking) && (
+              <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5">
+                <span
+                  className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${isListening ? 'animate-ping bg-sky-400' : 'bg-violet-400'}`}
+                />
+                <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-white ring-2 ring-sky-500" />
+              </span>
+            )}
+            {needsMicTap && !isListening && !isSpeaking && (
+              <span
+                className="pointer-events-none absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-emerald-400 shadow-sm ring-2 ring-white"
+                aria-hidden
+              />
+            )}
+            <span className={`relative flex items-center justify-center ${isListening ? 'scale-105' : ''}`} aria-hidden>
+              {renderIcon(FaMicrophone, 22)}
+            </span>
+          </button>
         </div>
       )}
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FaGithub, FaLinkedin, FaFacebook, FaDownload } from 'react-icons/fa';
+import QuintonLogo from './QuintonLogo';
 
 function useCountUp(end: number, durationMs: number, enabled: boolean) {
   const [value, setValue] = useState(0);
@@ -29,6 +30,7 @@ interface HeaderProps {
   onScrollToAbout: () => void;
   onScrollToPortfolio: () => void;
   onScrollToServices: () => void;
+  onScrollToSoftwareIt: () => void;
   onScrollToResume: () => void;
   onScrollToContact: () => void;
 }
@@ -38,6 +40,7 @@ const Header: React.FC<HeaderProps> = ({
   onScrollToAbout,
   onScrollToPortfolio,
   onScrollToServices,
+  onScrollToSoftwareIt,
   onScrollToResume,
   onScrollToContact
 }) => {
@@ -53,40 +56,38 @@ const Header: React.FC<HeaderProps> = ({
     { icon: FaFacebook, url: "https://facebook.com/", label: "Facebook" },
   ];
 
-  const handleDownload = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const link = document.createElement('a');
-    link.href = '/cv.pdf';
-    link.download = 'Quinton_Ndlovu_CV.pdf';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  /** Served from public/images — must match your PDF filename there */
+  const cvPdfPath = `${process.env.PUBLIC_URL || ''}/images/Quinton_Ndlovu_CV.pdf`;
 
   return (
     <section className="min-h-screen bg-[#F5F5F7] flex flex-col p-4 sm:p-8 md:p-12 lg:p-16 font-sans text-[#1D1D1F]">
       {/* Navigation Bar */}
       <nav className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between w-full mb-8 sm:mb-12 min-w-0">
-        <div
-          className="font-bold text-xl sm:text-2xl tracking-tighter cursor-pointer shrink-0"
+        <button
+          type="button"
+          className="cursor-pointer shrink-0 text-left p-0 m-0 bg-transparent border-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 rounded-xl"
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          aria-label="Quinton — scroll to top"
         >
-          Quinton
-        </div>
+          <QuintonLogo variant="header" />
+        </button>
         <div className="hidden md:flex flex-wrap items-center gap-x-6 lg:gap-x-8 gap-y-2 text-sm font-semibold text-gray-500">
           <button onClick={onScrollToAbout} className="hover:text-black transition-colors">About Me</button>
           <button onClick={onScrollToPortfolio} className="hover:text-black transition-colors">Portfolio</button>
           <button onClick={onScrollToServices} className="hover:text-black transition-colors">Services</button>
+          <button type="button" onClick={onScrollToSoftwareIt} className="hover:text-black transition-colors">
+            {'Software & IT'}
+          </button>
           <button onClick={onScrollToResume} className="hover:text-black transition-colors">Resume</button>
         </div>
         <div className="flex flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto sm:justify-end min-w-0">
-          <button
-            type="button"
-            onClick={handleDownload}
-            className="flex flex-1 sm:flex-initial min-w-0 items-center justify-center gap-2 bg-white border border-gray-200 px-4 sm:px-6 py-2.5 rounded-full hover:bg-black hover:text-white transition-all text-xs sm:text-sm font-bold shadow-sm touch-manipulation"
+          <a
+            href={cvPdfPath}
+            download="Quinton_Ndlovu_CV.pdf"
+            className="flex flex-1 sm:flex-initial min-w-0 items-center justify-center gap-2 bg-white border border-gray-200 px-4 sm:px-6 py-2.5 rounded-full hover:bg-black hover:text-white transition-all text-xs sm:text-sm font-bold shadow-sm touch-manipulation no-underline text-inherit"
           >
             <span className="truncate">Download CV</span> {renderIcon(FaDownload, "text-xs shrink-0")}
-          </button>
+          </a>
           <button
             type="button"
             onClick={onScrollToContact}
@@ -124,7 +125,13 @@ const Header: React.FC<HeaderProps> = ({
             <p className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-gray-800 px-1 sm:px-0">
               — I'm Quinton, a software developer.
             </p>
-            
+            <div className="flex flex-col sm:flex-row flex-wrap items-center lg:items-start justify-center lg:justify-start gap-2 sm:gap-3 pt-3">
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-900">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden />
+                Available for freelance work
+              </span>
+              <span className="text-xs sm:text-sm text-gray-500">Response time: within 24 hours</span>
+            </div>
             <div className="flex justify-center lg:justify-start gap-3 pt-4">
               {socialLinks.map((social) => (
                 <a
